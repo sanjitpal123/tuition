@@ -1,0 +1,16 @@
+{
+  "name": "Setupclass",
+  "short_name": "Setupclass",
+  "description": "Manage your tuition classes, students, and fees with ease.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030303",
+  "theme_color": "#030303",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

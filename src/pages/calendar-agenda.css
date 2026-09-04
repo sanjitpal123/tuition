@@ -1,0 +1,76 @@
+/* Agenda View */
+.rbc-agenda-view table.rbc-agenda-table {
+  border: none !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table th {
+  border-bottom: 1px solid var(--rbc-border) !important;
+  border-left: none !important;
+  border-right: none !important;
+  padding: 12px 16px !important;
+  color: var(--rbc-text-muted) !important;
+  text-align: left !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  padding: 16px !important;
+  border-bottom: 1px solid var(--rbc-border) !important;
+  border-left: none !important;
+  border-right: none !important;
+  color: var(--rbc-text) !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr:hover {
+  background: var(--rbc-bg-hover) !important;
+}
+
+/* Mobile Responsive Agenda View */
+@media (max-width: 640px) {
+  .rbc-agenda-view table.rbc-agenda-table,
+  .rbc-agenda-view table.rbc-agenda-table tbody,
+  .rbc-agenda-view table.rbc-agenda-table th,
+  .rbc-agenda-view table.rbc-agenda-table td,
+  .rbc-agenda-view table.rbc-agenda-table tr {
+    display: block !important;
+    width: 100% !important;
+  }
+  
+  .rbc-agenda-view table.rbc-agenda-table thead {
+    display: none !important; /* Hide column headers on mobile */
+  }
+
+  .rbc-agenda-view table.rbc-agenda-table tr {
+    margin-bottom: 12px !important;
+    border: 1px solid var(--rbc-border) !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+  }
+
+  .rbc-agenda-view table.rbc-agenda-table td {
+    padding: 12px !important;
+    border: none !important;
+    text-align: left !important;
+  }
+
+  /* Style the Date cell as the card header */
+  .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-date-cell {
+    font-weight: 600;
+    color: var(--rbc-text) !important;
+    border-bottom: 1px solid var(--rbc-border) !important;
+    background: var(--rbc-bg-hover) !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+
+  /* Style the Time cell */
+  .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-time-cell {
+    color: var(--rbc-text-muted) !important;
+    padding-bottom: 4px !important;
+    font-size: 0.9em;
+  }
+
+  /* Style the Event cell */
+  .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-event-cell {
+    font-weight: 500;
+    padding-top: 4px !important;
+  }
+}

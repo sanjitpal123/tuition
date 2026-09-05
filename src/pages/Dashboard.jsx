@@ -150,7 +150,12 @@ export default function Dashboard() {
       {/* ========================================================================= */}
       {/* MOBILE SPECIFIC VIEW (< md) - Matched pixel-perfect to provided screenshot */}
       {/* ========================================================================= */}
-      <div className="block md:hidden pb-32 px-4 space-y-4 pt-2">
+      <div 
+        className="block md:hidden pb-36 px-4 space-y-4"
+        style={{
+          paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))'
+        }}
+      >
         
         {/* Ambient background glow in dark mode */}
         <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-red-600/15 via-rose-900/5 to-transparent pointer-events-none dark:block hidden" />

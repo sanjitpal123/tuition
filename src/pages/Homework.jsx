@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -12,23 +14,33 @@ import {
   Calendar as CalendarIcon, 
   Clock, 
   Users, 
+  User,
   Trash2, 
   X, 
   CheckCircle2, 
   AlertCircle,
   FileText,
   Filter,
+  SlidersHorizontal,
   ChevronDown,
-  Sparkles
+  ArrowLeft,
+  Sun,
+  Moon,
+  Bell
 } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function Homework() {
-  const { batches, students } = useData();
+  const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+  const { batches, students, realNotifications } = useData();
   const [homeworkList, setHomeworkList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'overdue'
+
+  const unreadNotificationsCount = realNotifications?.filter(n => !n.read)?.length || 0;
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -173,79 +185,120 @@ export default function Homework() {
   const activeCount = homeworkList.length - overdueCount;
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto pb-28">
-      {/* Desktop Header */}
-      <div className="hidden sm:flex sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight">Homework & Tasks</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Assign and manage homework assignments for your student batches.</p>
-        </div>
-        <div>
-          <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-semibold shadow-sm">
-            <Plus className="w-4 h-4" />
-            <span>Assign Homework</span>
-          </Button>
-        </div>
-      </div>
+    <div className="max-w-5xl mx-auto">
+      
+      {/* ========================================================================= */}
+      {/* MOBILE VIEW (Visible on md:hidden) */}
+      {/* ========================================================================= */}
+      <div className="md:hidden space-y-4 pb-28">
 
-      {/* Mobile Floating Action Pill Button */}
-      <button
-        type="button"
-        onClick={() => setIsModalOpen(true)}
-        style={{
-          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-          right: '1.25rem'
-        }}
-        className="sm:hidden fixed z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all cursor-pointer"
-      >
-        <Plus className="h-5 w-5 stroke-[2.5]" />
-        <span>Assign Homework</span>
-      </button>
+        {/* 1. Mobile Top Header Bar */}
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-white shadow-sm active:scale-95 transition-all"
+              title="Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-heading font-extrabold text-zinc-900 dark:text-white tracking-tight leading-none">
+                Homework & Tasks
+              </h1>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-none">
+                Track and manage all homework & tasks
+              </p>
+            </div>
+          </div>
 
-      {/* Top Metric Stats Grid */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
-        {/* Total Tasks */}
-        <div className="bg-white dark:bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-3 text-center sm:text-left transition-all">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
-            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Tasks</p>
-            <p className="text-lg sm:text-2xl font-heading font-extrabold text-zinc-900 dark:text-white leading-tight mt-0.5">{homeworkList.length}</p>
-          </div>
-        </div>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shadow-sm active:scale-95 transition-all"
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4.5 h-4.5 text-amber-400" />
+              ) : (
+                <Moon className="w-4.5 h-4.5 text-zinc-700" />
+              )}
+            </button>
 
-        {/* Active Due */}
-        <div className="bg-white dark:bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-3 text-center sm:text-left transition-all">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
-            <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Active Due</p>
-            <p className="text-lg sm:text-2xl font-heading font-extrabold text-amber-500 leading-tight mt-0.5">{activeCount}</p>
-          </div>
-        </div>
-
-        {/* Past Due */}
-        <div className="bg-white dark:bg-zinc-900 p-3 sm:p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-3 text-center sm:text-left transition-all">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Past Due</p>
-            <p className="text-lg sm:text-2xl font-heading font-extrabold text-rose-500 leading-tight mt-0.5">{overdueCount}</p>
+            <button
+              type="button"
+              onClick={() => navigate('/notifications')}
+              className="relative w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shadow-sm active:scale-95 transition-all"
+              title="Notifications"
+            >
+              <Bell className="w-4.5 h-4.5 stroke-[2]" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9px] font-extrabold text-white bg-red-600 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm">
+                  {unreadNotificationsCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
-        {/* Batch Filter Dropdown */}
-        <div className="relative flex-1 max-w-full sm:max-w-xs">
+        {/* 2. Top 3 Stats Grid */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {/* Card 1: Total Tasks */}
+          <div className="bg-white dark:bg-[#101420] rounded-2xl p-3 border border-zinc-200/80 dark:border-zinc-800/80 border-b-2 border-b-rose-500 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="w-8 h-8 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center mb-1">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
+              TOTAL TASKS
+            </span>
+            <span className="text-xl font-heading font-extrabold text-zinc-900 dark:text-white mt-0.5">
+              {homeworkList.length}
+            </span>
+          </div>
+
+          {/* Card 2: Active Due */}
+          <div className="bg-white dark:bg-[#101420] rounded-2xl p-3 border border-zinc-200/80 dark:border-zinc-800/80 border-b-2 border-b-amber-500 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center mb-1">
+              <Clock className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
+              ACTIVE DUE
+            </span>
+            <span className="text-xl font-heading font-extrabold text-amber-500 mt-0.5">
+              {activeCount}
+            </span>
+          </div>
+
+          {/* Card 3: Past Due */}
+          <div className="bg-white dark:bg-[#101420] rounded-2xl p-3 border border-zinc-200/80 dark:border-zinc-800/80 border-b-2 border-b-rose-500 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="w-8 h-8 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center mb-1">
+              <AlertCircle className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
+              PAST DUE
+            </span>
+            <span className="text-xl font-heading font-extrabold text-rose-500 mt-0.5">
+              {overdueCount}
+            </span>
+          </div>
+        </div>
+
+        {/* 3. Batch Selector Dropdown Box */}
+        <div className="relative">
+          <div className="w-full bg-white dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 rounded-2xl px-3.5 py-3 flex items-center justify-between shadow-sm cursor-pointer">
+            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-200">
+              {selectedBatchFilter === 'all' 
+                ? 'All Batches' 
+                : (batches.find(b => (b.id === selectedBatchFilter || b._id === selectedBatchFilter))?.name || 'Selected Batch')}
+            </span>
+            <ChevronDown className="w-4 h-4 text-zinc-400 pointer-events-none flex-shrink-0" />
+          </div>
           <select
             value={selectedBatchFilter}
             onChange={(e) => setSelectedBatchFilter(e.target.value)}
-            className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white font-medium text-xs sm:text-sm rounded-xl px-4 py-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-red-500/20 shadow-sm cursor-pointer"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           >
             <option value="all">All Batches</option>
             {batches.map((batch) => (
@@ -254,108 +307,273 @@ export default function Homework() {
               </option>
             ))}
           </select>
-          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-            <ChevronDown className="w-4 h-4" />
-          </div>
         </div>
 
-        {/* Search Input */}
-        <div className="flex-1 min-w-0">
-          <Input 
-            icon={Search} 
-            placeholder="Search homework by title or subject..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        {/* 4. Search Bar with Filter Icon */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 flex items-center bg-white dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 rounded-2xl px-3.5 py-2.5 shadow-sm">
+            <Search className="w-4 h-4 text-zinc-400 flex-shrink-0 mr-2.5" />
+            <input
+              type="text"
+              placeholder="Search homework by title or subject..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-transparent text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="w-10 h-10 rounded-2xl bg-white dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 shadow-sm active:scale-95 transition-all flex-shrink-0"
+            title="Filter"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
         </div>
+
+        {/* 5. Homework Cards List */}
+        <div className="space-y-3 pt-1">
+          {filteredHomework.map((item) => {
+            const itemBatchId = typeof item.batchId === 'object' ? (item.batchId?._id || item.batchId?.id) : item.batchId;
+            const batch = batches.find(b => (b.id === itemBatchId || b._id === itemBatchId));
+            const batchName = item.batchName || batch?.name || 'sanjit';
+            const isOverdue = item.dueDate && new Date(item.dueDate) < now;
+            const formattedDue = item.dueDate 
+              ? format(new Date(item.dueDate), 'MMM dd') 
+              : 'No due date';
+
+            return (
+              <div
+                key={item._id || item.id}
+                className="bg-white dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-4 space-y-2.5 shadow-sm"
+              >
+                {/* Top Badges & Delete Button */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-red-500/15 text-red-600 dark:text-red-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-red-500/20 uppercase tracking-wider">
+                      {item.subject}
+                    </span>
+                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase tracking-wider ${
+                      isOverdue 
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20' 
+                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                    }`}>
+                      {isOverdue ? 'PAST DUE' : 'ACTIVE DUE'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item._id || item.id)}
+                    className="w-8 h-8 rounded-xl bg-zinc-50 dark:bg-[#0c0f17] border border-zinc-200/80 dark:border-zinc-800 text-zinc-400 hover:text-red-500 flex items-center justify-center active:scale-95 transition-all"
+                    title="Delete Homework"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Title */}
+                <h3 className="text-base font-heading font-extrabold text-zinc-900 dark:text-white tracking-tight">
+                  {item.title}
+                </h3>
+
+                {/* Description / Instructions */}
+                {item.description && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                    {item.description}
+                  </p>
+                )}
+
+                {/* Bottom Metadata: Batch & Due Date */}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
+                  <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300 font-semibold">
+                    <User className="w-3.5 h-3.5 text-red-500" />
+                    <span>{batchName}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Due: {formattedDue}</span>
+                  </div>
+                </div>
+
+              </div>
+            );
+          })}
+
+          {filteredHomework.length === 0 && (
+            <div className="text-center py-12 bg-white dark:bg-[#101420] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-6">
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                No homework tasks found matching your search.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 6. Floating Action Button (`+ Assign Homework`) */}
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          style={{
+            bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+            right: '1.25rem'
+          }}
+          className="fixed z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all cursor-pointer"
+        >
+          <Plus className="h-5 w-5 stroke-[2.5]" />
+          <span>Assign Homework</span>
+        </button>
+
       </div>
 
-      {/* Homework Cards List */}
-      <div className="space-y-3.5">
-        {isLoading ? (
-          <div className="flex justify-center p-12">
-            <div className="w-9 h-9 border-3 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+      {/* ========================================================================= */}
+      {/* DESKTOP VIEW (Visible on md: and up) */}
+      {/* ========================================================================= */}
+      <div className="hidden md:block space-y-6 pb-20">
+        {/* Desktop Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight">Homework & Tasks</h1>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Assign and manage homework assignments for your student batches.</p>
           </div>
-        ) : filteredHomework.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white dark:bg-zinc-900/60 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800">
-            <div className="w-14 h-14 bg-red-50 dark:bg-red-500/10 rounded-2xl flex items-center justify-center mb-3 text-red-500">
-              <BookOpen className="w-7 h-7" />
-            </div>
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-1">No homework found</h3>
-            <p className="text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm max-w-sm">
-              {searchTerm || selectedBatchFilter !== 'all' 
-                ? "No assignments matching your selected filters." 
-                : "You haven't assigned any homework yet. Click '+ Assign Homework' to create one."}
-            </p>
+          <div>
+            <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-semibold shadow-sm">
+              <Plus className="w-4 h-4" />
+              <span>Assign Homework</span>
+            </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {filteredHomework.map(item => {
-              const itemBatchId = typeof item.batchId === 'object' ? (item.batchId?._id || item.batchId?.id) : item.batchId;
-              const batch = batches.find(b => (b.id === itemBatchId || b._id === itemBatchId));
-              const batchName = item.batchName || batch?.name || 'Assigned Batch';
-              const batchClass = batch?.class || '';
+        </div>
 
-              const isOverdue = item.dueDate && new Date(item.dueDate) < now;
+        {/* Top Metric Stats Grid */}
+        <div className="grid grid-cols-3 gap-4">
+          <Card className="border border-zinc-200 dark:border-zinc-800">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Tasks</p>
+                <p className="text-2xl font-heading font-extrabold text-zinc-900 dark:text-white mt-0.5">{homeworkList.length}</p>
+              </div>
+            </CardContent>
+          </Card>
 
-              return (
-                <div 
-                  key={item._id || item.id} 
-                  className="group relative overflow-hidden bg-white dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 border-l-4 border-l-red-500 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-                >
+          <Card className="border border-zinc-200 dark:border-zinc-800">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Active Due</p>
+                <p className="text-2xl font-heading font-extrabold text-amber-500 mt-0.5">{activeCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-zinc-200 dark:border-zinc-800">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Past Due</p>
+                <p className="text-2xl font-heading font-extrabold text-rose-500 mt-0.5">{overdueCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filter and Search Bar */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="w-64">
+            <select
+              value={selectedBatchFilter}
+              onChange={(e) => setSelectedBatchFilter(e.target.value)}
+              className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white font-medium text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500/20 shadow-sm cursor-pointer"
+            >
+              <option value="all">All Batches</option>
+              {batches.map((batch) => (
+                <option key={batch.id || batch._id} value={batch.id || batch._id}>
+                  {batch.name} {batch.class ? `(${batch.class})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1 max-w-sm">
+            <Input 
+              icon={Search} 
+              placeholder="Search homework by title or subject..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Desktop Homework Cards List */}
+        <div className="grid grid-cols-2 gap-4">
+          {filteredHomework.map(item => {
+            const itemBatchId = typeof item.batchId === 'object' ? (item.batchId?._id || item.batchId?.id) : item.batchId;
+            const batch = batches.find(b => (b.id === itemBatchId || b._id === itemBatchId));
+            const batchName = item.batchName || batch?.name || 'Assigned Batch';
+            const isOverdue = item.dueDate && new Date(item.dueDate) < now;
+
+            return (
+              <Card key={item._id || item.id} className="border border-zinc-200 dark:border-zinc-800 border-l-4 border-l-red-500 shadow-sm">
+                <CardContent className="p-5 flex flex-col justify-between h-full">
                   <div>
-                    {/* Top Row: Subject & Delete */}
                     <div className="flex justify-between items-start gap-2 mb-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2.5 py-0.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider">
                           {item.subject}
                         </span>
                         <Badge variant={isOverdue ? 'danger' : 'warning'} className="text-[10px] font-extrabold uppercase tracking-wider">
-                          {isOverdue ? 'Overdue' : 'Active Due'}
+                          {isOverdue ? 'Past Due' : 'Active Due'}
                         </Badge>
                       </div>
 
                       <button
                         onClick={() => handleDelete(item._id || item.id)}
-                        className="p-1.5 -mr-1 -mt-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        className="p-1 rounded-lg text-zinc-400 hover:text-red-500 transition-colors"
                         title="Delete Assignment"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* Title & Description */}
-                    <h3 className="text-base sm:text-lg font-bold font-heading text-zinc-900 dark:text-white tracking-tight mt-1">
+                    <h3 className="text-base font-bold font-heading text-zinc-900 dark:text-white tracking-tight mt-1">
                       {item.title}
                     </h3>
 
                     {item.description && (
-                      <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1.5 line-clamp-3 leading-relaxed">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 line-clamp-3">
                         {item.description}
                       </p>
                     )}
                   </div>
 
-                  {/* Bottom Meta Container */}
-                  <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs gap-2">
-                    <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300 truncate">
-                      <Users className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                      <span className="font-semibold truncate">{batchName} {batchClass ? `(${batchClass})` : ''}</span>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300 font-semibold">
+                      <Users className="w-3.5 h-3.5 text-red-500" />
+                      <span>{batchName}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 font-medium text-zinc-500 dark:text-zinc-400 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
                       <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Due: {item.dueDate ? new Date(item.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No date'}</span>
+                      <span>Due: {item.dueDate ? format(new Date(item.dueDate), 'MMM dd, yyyy') : 'No date'}</span>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Create Homework Modal */}
+      {/* ========================================================================= */}
+      {/* MODALS */}
+      {/* ========================================================================= */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
           <div 
@@ -459,6 +677,7 @@ export default function Homework() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

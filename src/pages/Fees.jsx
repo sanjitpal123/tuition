@@ -381,10 +381,10 @@ export default function Fees() {
               <Search className="w-4 h-4 text-zinc-400 flex-shrink-0 mr-2.5" />
               <input
                 type="text"
-                placeholder="Search records by name, roll no. or ID..."
+                placeholder="Search records by name, roll or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-transparent text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none"
+                className="w-full bg-transparent text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none truncate pr-1"
               />
             </div>
 

@@ -325,7 +325,18 @@ export function DashboardLayout() {
           )}
 
           <main className="flex-1 pb-28 md:pb-8">
-            <div className={isDashboard || location.pathname === '/batches' || location.pathname === '/settings' || location.pathname === '/students' ? "mt-0 md:mt-8" : "mt-3 md:mt-8"}>
+            <div 
+              className={
+                isDashboard || location.pathname === '/batches' || location.pathname === '/settings' || location.pathname === '/students' || location.pathname === '/attendance' || location.pathname === '/fees' || location.pathname === '/homework'
+                  ? "mt-0 md:mt-8" 
+                  : "mt-3 md:mt-8"
+              }
+              style={{
+                paddingTop: (!isDashboard && (location.pathname === '/batches' || location.pathname === '/settings' || location.pathname === '/students' || location.pathname === '/attendance' || location.pathname === '/fees' || location.pathname === '/homework'))
+                  ? 'calc(0.75rem + env(safe-area-inset-top, 0px))' 
+                  : '0px'
+              }}
+            >
               <div className={`max-w-7xl mx-auto ${isDashboard ? 'px-0 md:px-8' : 'px-4 sm:px-6 lg:px-8'}`}>
                 <Outlet />
               </div>
@@ -335,19 +346,22 @@ export function DashboardLayout() {
 
         {/* Mobile menu overlay */}
         {mobileMenuOpen && (
-          <div className="relative z-50 md:hidden">
+          <div className="relative z-[70] md:hidden">
             <div
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70]"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="fixed inset-0 flex">
+            <div className="fixed inset-0 flex z-[70]">
               <div 
-                className="relative mr-16 flex w-full max-w-xs flex-1 flex-col bg-gray-50 dark:bg-[#030303] border-r border-black/5 dark:border-white/5 pb-4 shadow-2xl"
-                style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 0px))' }}
+                className="relative mr-16 flex w-full max-w-xs flex-1 flex-col bg-gray-50 dark:bg-[#0c0f17] border-r border-zinc-200 dark:border-zinc-800 pb-4 shadow-2xl"
+                style={{ 
+                  paddingTop: 'calc(2rem + env(safe-area-inset-top, 0px))',
+                  paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))'
+                }}
               >
                 <div 
                   className="absolute top-0 right-0 -mr-12"
-                  style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))' }}
+                  style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}
                 >
                   <button
                     type="button"
@@ -461,11 +475,11 @@ export function DashboardLayout() {
         <div 
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 w-full bg-white/95 dark:bg-[#0c0f17]/95 backdrop-blur-2xl border-t border-zinc-200/80 dark:border-zinc-800/80 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)]"
           style={{
-            height: 'calc(3.9rem + env(safe-area-inset-bottom, 0px))',
+            height: 'calc(3.75rem + env(safe-area-inset-bottom, 0px))',
             paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
-          <div className="grid h-full w-full grid-cols-6 max-w-lg mx-auto relative px-0.5">
+          <div className="grid h-full w-full grid-cols-6 max-w-md mx-auto relative">
             {/* 1. Dashboard Tab */}
             <NavLink
               to="/dashboard"
@@ -480,13 +494,13 @@ export function DashboardLayout() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span className="absolute top-0 w-6 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                   )}
                   <LayoutGrid
-                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    className={`w-4 h-4 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[10px] leading-tight tracking-tight">
+                  <span className="text-[9.5px] leading-tight tracking-tight">
                     Dashboard
                   </span>
                 </>
@@ -507,13 +521,13 @@ export function DashboardLayout() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span className="absolute top-0 w-6 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                   )}
                   <Users
-                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    className={`w-4 h-4 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[10px] leading-tight tracking-tight">
+                  <span className="text-[9.5px] leading-tight tracking-tight">
                     Student
                   </span>
                 </>
@@ -534,13 +548,13 @@ export function DashboardLayout() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span className="absolute top-0 w-6 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                   )}
                   <BookOpen
-                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    className={`w-4 h-4 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[10px] leading-tight tracking-tight">
+                  <span className="text-[9.5px] leading-tight tracking-tight">
                     Batch
                   </span>
                 </>
@@ -561,13 +575,13 @@ export function DashboardLayout() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span className="absolute top-0 w-6 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                   )}
                   <CreditCard
-                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    className={`w-4 h-4 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[10px] leading-tight tracking-tight">
+                  <span className="text-[9.5px] leading-tight tracking-tight">
                     Fees
                   </span>
                 </>
@@ -588,13 +602,13 @@ export function DashboardLayout() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span className="absolute top-0 w-6 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                   )}
                   <User
-                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    className={`w-4 h-4 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[10px] leading-tight tracking-tight">
+                  <span className="text-[9.5px] leading-tight tracking-tight">
                     Profile
                   </span>
                 </>
@@ -607,10 +621,10 @@ export function DashboardLayout() {
               className="relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all outline-none active:scale-95 cursor-pointer font-medium"
             >
               <MoreHorizontal 
-                className="w-4.5 h-4.5 stroke-[1.8]" 
+                className="w-4 h-4 stroke-[1.8]" 
                 aria-hidden="true"
               />
-              <span className="text-[10px] leading-tight tracking-tight">More</span>
+              <span className="text-[9.5px] leading-tight tracking-tight">More</span>
             </button>
           </div>
         </div>

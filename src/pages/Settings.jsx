@@ -1,26 +1,30 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Avatar } from '../components/ui/Avatar';
-import { Badge } from '../components/ui/Badge';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { 
-  User, 
+  ArrowLeft, 
+  Sun, 
+  Moon, 
+  Bell, 
+  Edit2, 
   Mail, 
   Phone, 
   Building2, 
-  Edit2, 
   LogOut, 
   ShieldCheck, 
-  Bell, 
   Palette, 
   X, 
-  Check,
-  GraduationCap,
-  Users
+  Check, 
+  Users, 
+  BookOpen, 
+  Calendar, 
+  IndianRupee, 
+  Clock, 
+  Megaphone, 
+  Star 
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 
 function Toggle({ enabled, onChange }) {
   return (
@@ -28,14 +32,14 @@ function Toggle({ enabled, onChange }) {
       type="button"
       className={`${
         enabled 
-          ? 'bg-gradient-to-br from-red-500 to-red-700 shadow-[0_0_12px_rgba(239,68,68,0.35)] border border-red-500/50' 
-          : 'bg-zinc-200 dark:bg-zinc-800'
-      } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2`}
+          ? 'bg-red-600 shadow-[0_0_10px_rgba(239,68,68,0.5)]' 
+          : 'bg-zinc-300 dark:bg-zinc-800'
+      } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none`}
       role="switch"
       aria-checked={enabled}
       onClick={() => onChange(!enabled)}
     >
-      <span className="sr-only">Use setting</span>
+      <span className="sr-only">Toggle setting</span>
       <span
         aria-hidden="true"
         className={`${
@@ -48,29 +52,27 @@ function Toggle({ enabled, onChange }) {
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
-  const { batches, students } = useData();
+  const { theme, toggleTheme, setTheme } = useTheme();
+  const { batches, students, realNotifications } = useData();
 
   const [currentUser, setCurrentUser] = useState(() => {
-    return JSON.parse(localStorage.getItem('tutorProfile') || '{"name":"Tutor","email":"tutor@setupclass.com","tuitionName":"Setupclass Tuition Hub"}');
+    return JSON.parse(localStorage.getItem('tutorProfile') || '{"name":"Sanjit","email":"sanjit@example.com","tuitionName":"Setupclass Tuition Hub"}');
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
-    name: currentUser.name || '',
-    email: currentUser.email || '',
+    name: currentUser.name || 'Sanjit',
+    email: currentUser.email || 'sanjit@example.com',
     phone: currentUser.phone || '',
     tuitionName: currentUser.tuitionName || 'Setupclass Tuition Hub'
   });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [settings, setSettings] = useState({
     attendanceReminders: true,
     feeReminders: true,
     classReminders: true,
-    testResultNotifications: true
+    noticeAlerts: true
   });
 
   const handleToggle = (key) => (value) => {
@@ -79,8 +81,8 @@ export default function Settings() {
 
   const handleOpenEditModal = () => {
     setEditFormData({
-      name: currentUser.name || '',
-      email: currentUser.email || '',
+      name: currentUser.name || 'Sanjit',
+      email: currentUser.email || 'sanjit@example.com',
       phone: currentUser.phone || '',
       tuitionName: currentUser.tuitionName || 'Setupclass Tuition Hub'
     });
@@ -107,194 +109,385 @@ export default function Settings() {
   };
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to log out of your account?")) {
+    if (window.confirm("Are you sure you want to log out of your tutor dashboard?")) {
       localStorage.removeItem("tutorToken");
       localStorage.removeItem("tutorProfile");
       navigate("/login");
     }
   };
 
+  const unreadCount = (realNotifications || []).filter(n => !n.isRead).length;
+
+  const getInitials = (name) => {
+    if (!name) return 'SA';
+    const parts = name.trim().split(' ').filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const activeStudentsCount = students.filter(s => s.status === 'Active').length;
+
   return (
-    <div className="space-y-5 max-w-4xl mx-auto pb-24">
-      {/* Desktop Header */}
-      <div className="hidden sm:block">
-        <h1 className="text-3xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight">Profile & Settings</h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Manage your teacher profile, preferences, and account credentials.</p>
-      </div>
-
-      {/* 1. Teacher Profile Identity Card */}
-      <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-        <div className="p-5 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center font-heading font-bold text-2xl shadow-md shadow-red-950/20 flex-shrink-0">
-                <Avatar fallback={currentUser.name || 'T'} size="lg" className="w-full h-full text-2xl rounded-2xl" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-xl sm:text-2xl font-heading font-bold text-zinc-900 dark:text-white truncate capitalize">
-                    {currentUser.name || 'Tutor'}
-                  </h2>
-                  <Badge variant="success" className="text-[10px] font-bold uppercase tracking-wider">
-                    Active Teacher
-                  </Badge>
-                </div>
-                
-                <p className="text-sm font-semibold text-red-600 dark:text-red-400 mt-0.5 flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">{currentUser.tuitionName || 'Setupclass Tuition Hub'}</span>
-                </p>
-
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-3 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Mail className="w-3.5 h-3.5 text-zinc-400" />
-                    {currentUser.email || 'tutor@setupclass.com'}
-                  </span>
-                  {currentUser.phone && (
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5 text-zinc-400" />
-                      {currentUser.phone}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button onClick={handleOpenEditModal} variant="outline" className="flex items-center gap-2 text-xs sm:text-sm h-10 w-full sm:w-auto justify-center">
-                <Edit2 className="w-4 h-4 text-blue-500" />
-                <span>Edit Profile</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Quick Account Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800">
-            <div className="bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 text-center">
-              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Assigned Batches</span>
-              <p className="text-xl font-heading font-bold text-zinc-900 dark:text-white mt-0.5">{batches.length}</p>
-            </div>
-            <div className="bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 text-center">
-              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Active Students</span>
-              <p className="text-xl font-heading font-bold text-zinc-900 dark:text-white mt-0.5">{students.length}</p>
-            </div>
-            <div className="col-span-2 sm:col-span-1 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 text-center">
-              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Access Level</span>
-              <p className="text-xl font-heading font-bold text-emerald-500 mt-0.5">Admin Tutor</p>
-            </div>
+    <div className="space-y-4 max-w-4xl mx-auto pb-36">
+      
+      {/* ========================================================================= */}
+      {/* MOBILE HEADER (Matches design screenshot) */}
+      {/* ========================================================================= */}
+      <div 
+        className="flex items-center justify-between relative z-10 pt-1 px-1 sm:px-0"
+        style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
+      >
+        <div className="flex items-center space-x-3 min-w-0">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 rounded-2xl bg-white dark:bg-[#121622] border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-red-500 active:scale-90 transition-all cursor-pointer flex-shrink-0"
+            title="Back"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <div className="min-w-0 truncate">
+            <h1 className="text-xl font-heading font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight truncate">
+              Profile & Settings
+            </h1>
           </div>
         </div>
-      </Card>
 
-      {/* 2. Notification Preferences */}
-      <Card>
-        <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Bell className="w-4 h-4 text-red-500" />
-            Notification Preferences
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            <li className="flex items-center justify-between p-4 sm:p-5">
-              <div className="pr-4">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Attendance Reminders</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Get notified when attendance is not marked for a class.</p>
-              </div>
-              <Toggle enabled={settings.attendanceReminders} onChange={handleToggle('attendanceReminders')} />
-            </li>
-            <li className="flex items-center justify-between p-4 sm:p-5">
-              <div className="pr-4">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Fee Reminders</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Automatic notifications for pending and overdue tuition fees.</p>
-              </div>
-              <Toggle enabled={settings.feeReminders} onChange={handleToggle('feeReminders')} />
-            </li>
-            <li className="flex items-center justify-between p-4 sm:p-5">
-              <div className="pr-4">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Class Reminders</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Receive an alert 15 minutes before scheduled lectures.</p>
-              </div>
-              <Toggle enabled={settings.classReminders} onChange={handleToggle('classReminders')} />
-            </li>
-            <li className="flex items-center justify-between p-4 sm:p-5">
-              <div className="pr-4">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notice & Broadcast Alerts</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Notify immediately when an announcement is sent.</p>
-              </div>
-              <Toggle enabled={settings.testResultNotifications} onChange={handleToggle('testResultNotifications')} />
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* 3. Appearance Card */}
-      <Card>
-        <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Palette className="w-4 h-4 text-red-500" />
-            Appearance & Theme
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Select your dashboard theme appearance.</p>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-sm">
-             <div 
-               onClick={() => setTheme('light')}
-               className={`p-4 bg-gray-50 border-2 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all ${theme === 'light' ? 'border-red-600 shadow-md ring-2 ring-red-500/20' : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'}`}
-             >
-                <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center mb-2 shadow-sm">
-                  <div className="w-4 h-4 rounded-full bg-amber-400" />
-                </div>
-                <span className="text-sm font-bold text-zinc-900">Light Mode</span>
-             </div>
-
-             <div 
-               onClick={() => setTheme('dark')}
-               className={`p-4 bg-zinc-950 border-2 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all ${theme === 'dark' ? 'border-red-600 shadow-md ring-2 ring-red-500/20' : 'border-zinc-800 hover:border-zinc-700'}`}
-             >
-                <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center mb-2 shadow-sm">
-                  <div className="w-4 h-4 rounded-full bg-indigo-400" />
-                </div>
-                <span className="text-sm font-bold text-white">Dark Mode</span>
-             </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* 4. Danger Zone / Logout Section */}
-      <Card className="border-red-200 dark:border-red-950/60 bg-gradient-to-br from-red-50/50 to-rose-50/30 dark:from-red-950/10 dark:to-transparent">
-        <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-red-600 dark:text-red-400">Account Session</h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Securely sign out of your tutor dashboard on this device.
-            </p>
-          </div>
-
-          <Button 
-            onClick={handleLogout}
-            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold h-11 px-6 shadow-md shadow-red-950/30 active:scale-95 transition-all"
+        {/* Right action controls */}
+        <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+          <button
+            onClick={toggleTheme}
+            className="w-10 h-10 rounded-2xl bg-white dark:bg-[#121622] border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-red-500 active:scale-90 transition-all cursor-pointer"
+            title="Toggle Theme"
           >
-            <LogOut className="w-4 h-4" />
-            <span>Log Out</span>
-          </Button>
-        </CardContent>
-      </Card>
+            {theme === "dark" ? (
+              <Sun className="w-4.5 h-4.5 text-amber-400 stroke-[2] drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]" />
+            ) : (
+              <Moon className="w-4.5 h-4.5 text-zinc-700 stroke-[2]" />
+            )}
+          </button>
 
-      {/* Edit Profile Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+          <button
+            onClick={() => navigate('/notifications')}
+            className="relative w-10 h-10 rounded-2xl bg-white dark:bg-[#121622] border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-red-500 active:scale-90 transition-all cursor-pointer"
+            title="Notifications"
+          >
+            <Bell className="w-4.5 h-4.5 stroke-[2]" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9px] font-extrabold text-white bg-red-600 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 1. TEACHER PROFILE HERO CARD */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-[#101420] rounded-[28px] p-5 border border-zinc-200/80 dark:border-zinc-800/90 shadow-sm space-y-4">
+        
+        {/* Top Profile Details Row */}
+        <div className="flex items-center gap-4">
+          
+          {/* Glowing Circular Avatar */}
+          <div className="relative flex-shrink-0">
+            <div className="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-red-600 via-rose-500 to-amber-500 shadow-[0_0_16px_rgba(239,68,68,0.4)] flex items-center justify-center">
+              <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center font-heading font-extrabold text-white text-xl tracking-tight">
+                {getInitials(currentUser.name)}
+              </div>
+            </div>
+          </div>
+
+          {/* Teacher Information */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-heading font-extrabold text-zinc-900 dark:text-white capitalize tracking-tight truncate">
+                {currentUser.name || 'Sanjit'}
+              </h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Active Teacher
+              </span>
+            </div>
+
+            {/* Rating / Meta Line */}
+            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <span className="text-red-500 font-bold">★</span>
+              <span className="font-extrabold text-zinc-900 dark:text-white">4.9</span>
+              <span className="text-zinc-400 dark:text-zinc-500">(128)</span>
+            </div>
+
+            {/* Email Line */}
+            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">
+              <Mail className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+              <span className="truncate">{currentUser.email || 'sanjit@example.com'}</span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Edit Profile Outline Button */}
+        <button
+          onClick={handleOpenEditModal}
+          className="w-full py-2.5 px-4 rounded-2xl border border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 active:scale-[0.99] transition-all font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <Edit2 className="w-3.5 h-3.5" />
+          <span>Edit Profile</span>
+        </button>
+
+        {/* Inner Metrics Matrix */}
+        <div className="space-y-2.5 pt-1">
+          {/* Top 2 Mini Cards */}
+          <div className="grid grid-cols-2 gap-2.5">
+            
+            {/* Assigned Batches */}
+            <div className="bg-zinc-50 dark:bg-[#151a26] border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0 border border-red-500/20">
+                <BookOpen className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block leading-tight">
+                  ASSIGNED BATCHES
+                </span>
+                <span className="text-lg font-heading font-extrabold text-zinc-900 dark:text-white block mt-0.5 leading-none">
+                  {batches.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Active Students */}
+            <div className="bg-zinc-50 dark:bg-[#151a26] border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 border border-blue-500/20">
+                <Users className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block leading-tight">
+                  ACTIVE STUDENTS
+                </span>
+                <span className="text-lg font-heading font-extrabold text-zinc-900 dark:text-white block mt-0.5 leading-none">
+                  {activeStudentsCount}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. NOTIFICATION PREFERENCES CARD */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-[#101420] rounded-[28px] p-5 border border-zinc-200/80 dark:border-zinc-800/90 shadow-sm space-y-3">
+        
+        {/* Card Title */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center border border-red-500/20">
+            <Bell className="w-3.5 h-3.5" />
+          </div>
+          <h3 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white">
+            Notification Preferences
+          </h3>
+        </div>
+
+        {/* 4 Preference Rows */}
+        <div className="space-y-2.5">
+          
+          {/* Row 1: Attendance Reminders */}
+          <div className="bg-zinc-50 dark:bg-[#151a26] rounded-2xl p-3.5 border border-zinc-200/60 dark:border-zinc-800/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-zinc-900/90 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-zinc-900 dark:text-white leading-tight">
+                  Attendance Reminders
+                </p>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">
+                  Get notified when attendance is not marked for a class.
+                </p>
+              </div>
+            </div>
+            <Toggle enabled={settings.attendanceReminders} onChange={handleToggle('attendanceReminders')} />
+          </div>
+
+          {/* Row 2: Fee Reminders */}
+          <div className="bg-zinc-50 dark:bg-[#151a26] rounded-2xl p-3.5 border border-zinc-200/60 dark:border-zinc-800/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-zinc-900/90 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                <IndianRupee className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-zinc-900 dark:text-white leading-tight">
+                  Fee Reminders
+                </p>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">
+                  Automatic notifications for pending and overdue tuition fees.
+                </p>
+              </div>
+            </div>
+            <Toggle enabled={settings.feeReminders} onChange={handleToggle('feeReminders')} />
+          </div>
+
+          {/* Row 3: Class Reminders */}
+          <div className="bg-zinc-50 dark:bg-[#151a26] rounded-2xl p-3.5 border border-zinc-200/60 dark:border-zinc-800/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-zinc-900/90 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-zinc-900 dark:text-white leading-tight">
+                  Class Reminders
+                </p>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">
+                  Receive an alert 15 minutes before scheduled lectures.
+                </p>
+              </div>
+            </div>
+            <Toggle enabled={settings.classReminders} onChange={handleToggle('classReminders')} />
+          </div>
+
+          {/* Row 4: Notice & Broadcast Alerts */}
+          <div className="bg-zinc-50 dark:bg-[#151a26] rounded-2xl p-3.5 border border-zinc-200/60 dark:border-zinc-800/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-zinc-900/90 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                <Megaphone className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-zinc-900 dark:text-white leading-tight">
+                  Notice & Broadcast Alerts
+                </p>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">
+                  Notify immediately when an announcement is sent.
+                </p>
+              </div>
+            </div>
+            <Toggle enabled={settings.noticeAlerts} onChange={handleToggle('noticeAlerts')} />
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. APPEARANCE & THEME CARD */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-[#101420] rounded-[28px] p-5 border border-zinc-200/80 dark:border-zinc-800/90 shadow-sm space-y-3">
+        
+        {/* Card Title */}
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center border border-red-500/20">
+              <Palette className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white">
+              Appearance & Theme
+            </h3>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            Select your dashboard theme appearance.
+          </p>
+        </div>
+
+        {/* 2 Selectable Cards */}
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          
+          {/* Light Mode Selection Card */}
           <div 
-            className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            onClick={() => setTheme('light')}
+            className={`relative p-5 rounded-2xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all active:scale-95 ${
+              theme === 'light' 
+                ? 'border-red-600 bg-red-500/5 dark:bg-zinc-800/80 shadow-md shadow-red-950/10' 
+                : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#151a26] hover:border-zinc-300 dark:hover:border-zinc-700'
+            }`}
+          >
+            {theme === 'light' && (
+              <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm">
+                <Check className="w-3 h-3 stroke-[3]" />
+              </span>
+            )}
+            
+            <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 flex items-center justify-center mb-2.5 shadow-sm">
+              <Sun className="w-6 h-6 text-amber-500 stroke-[2]" />
+            </div>
+            <span className="text-xs font-extrabold text-zinc-900 dark:text-white">
+              Light Mode
+            </span>
+          </div>
+
+          {/* Dark Mode Selection Card */}
+          <div 
+            onClick={() => setTheme('dark')}
+            className={`relative p-5 rounded-2xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all active:scale-95 ${
+              theme === 'dark' 
+                ? 'border-red-600 bg-[#121622] shadow-[0_0_20px_rgba(239,68,68,0.2)]' 
+                : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#151a26] hover:border-zinc-300 dark:hover:border-zinc-700'
+            }`}
+          >
+            {theme === 'dark' && (
+              <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm">
+                <Check className="w-3 h-3 stroke-[3]" />
+              </span>
+            )}
+
+            <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-2.5 shadow-sm">
+              <Moon className="w-6 h-6 text-indigo-400 stroke-[2]" />
+            </div>
+            <span className="text-xs font-extrabold text-zinc-900 dark:text-white">
+              Dark Mode
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 4. ACCOUNT SESSION CARD */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-[#101420] rounded-[28px] p-5 border border-zinc-200/80 dark:border-zinc-800/90 shadow-sm space-y-3">
+        
+        {/* Card Title */}
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center border border-red-500/20">
+              <ShieldCheck className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white">
+              Account Session
+            </h3>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            Securely sign out of your tutor dashboard on this device.
+          </p>
+        </div>
+
+        {/* Large Full-Width Red Log Out Button */}
+        <button
+          onClick={handleLogout}
+          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-heading font-extrabold text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-red-950/40 active:scale-[0.99] transition-all cursor-pointer"
+        >
+          <LogOut className="w-4.5 h-4.5 stroke-[2.2]" />
+          <span>Log Out</span>
+        </button>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* EDIT PROFILE MODAL (Adapts to Bottom Sheet on Mobile) */}
+      {/* ========================================================================= */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+          <div 
+            className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200 max-h-[90vh] overflow-y-auto"
             style={{
-              paddingBottom: 'calc(2.25rem + env(safe-area-inset-bottom, 0px))'
+              paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))'
             }}
           >
             <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-6 sm:hidden" />
             <button 
               onClick={() => setIsEditModalOpen(false)} 
-              className="absolute top-6 right-6 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors"
+              className="absolute top-6 right-6 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -365,6 +558,7 @@ export default function Settings() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

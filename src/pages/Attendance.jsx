@@ -347,12 +347,15 @@ export default function Attendance() {
       </Card>
       
       {/* Mobile Sticky Save Action */}
-      <div className="fixed bottom-16 left-0 right-0 p-4 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl border-t border-black/5 dark:border-white/5 sm:relative sm:bottom-auto sm:bg-transparent sm:border-0 sm:p-0 z-10 flex justify-end">
+      <div 
+        style={{ bottom: 'calc(3.9rem + env(safe-area-inset-bottom, 0px))' }}
+        className="fixed left-0 right-0 p-3 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-200/80 dark:border-zinc-800/80 sm:relative sm:bottom-auto sm:bg-transparent sm:border-0 sm:p-0 z-30 flex justify-end shadow-md"
+      >
         <Button 
           size="lg" 
           onClick={handleSave}
           disabled={isSubmitting || totalMarked === 0}
-          className="w-full sm:w-auto shadow-lg sm:shadow-md shadow-black/40"
+          className="w-full sm:w-auto shadow-lg sm:shadow-md bg-red-600 hover:bg-red-500 text-white font-bold"
         >
           {isSubmitting ? 'Saving...' : `Save Attendance (${totalMarked}/${batchStudents.length})`}
         </Button>

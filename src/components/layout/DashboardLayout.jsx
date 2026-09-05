@@ -276,8 +276,8 @@ export function DashboardLayout() {
             </div>
           </div>
 
-          {/* Mobile Top Header Bar for Sub-pages */}
-          {!isDashboard && (
+          {/* Mobile Top Header Bar for Sub-pages (except pages with custom dedicated mobile headers) */}
+          {!isDashboard && location.pathname !== '/batches' && location.pathname !== '/settings' && (
             <div 
               className="md:hidden sticky top-0 z-30 flex-shrink-0 bg-gradient-to-r from-red-600 via-red-600 to-rose-700 dark:from-[#140404] dark:via-[#110303] dark:to-[#080202] border-b border-red-500/20 dark:border-red-500/20 text-white shadow-md shadow-red-950/20 backdrop-blur-xl"
               style={{ 
@@ -324,7 +324,7 @@ export function DashboardLayout() {
           )}
 
           <main className="flex-1 pb-28 md:pb-8">
-            <div className={isDashboard ? "mt-0 md:mt-8" : "mt-3 md:mt-8"}>
+            <div className={isDashboard || location.pathname === '/batches' || location.pathname === '/settings' ? "mt-0 md:mt-8" : "mt-3 md:mt-8"}>
               <div className={`max-w-7xl mx-auto ${isDashboard ? 'px-0 md:px-8' : 'px-4 sm:px-6 lg:px-8'}`}>
                 <Outlet />
               </div>

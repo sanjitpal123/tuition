@@ -93,7 +93,11 @@ export default function Announcements() {
       <button
         type="button"
         onClick={handleOpenModal}
-        className="sm:hidden fixed bottom-20 right-5 z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all"
+        style={{
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          right: '1.25rem'
+        }}
+        className="sm:hidden fixed z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all cursor-pointer"
       >
         <Plus className="h-5 w-5 stroke-[2.5]" />
         <span>New Notice</span>
@@ -164,7 +168,7 @@ export default function Announcements() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-0">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
           <div className="relative bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-6 border-b border-black/5 dark:border-white/5 shrink-0">

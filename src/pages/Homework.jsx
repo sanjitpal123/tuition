@@ -192,7 +192,11 @@ export default function Homework() {
       <button
         type="button"
         onClick={() => setIsModalOpen(true)}
-        className="sm:hidden fixed bottom-20 right-5 z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all"
+        style={{
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          right: '1.25rem'
+        }}
+        className="sm:hidden fixed z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all cursor-pointer"
       >
         <Plus className="h-5 w-5 stroke-[2.5]" />
         <span>Assign Homework</span>
@@ -353,11 +357,11 @@ export default function Homework() {
 
       {/* Create Homework Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
           <div 
             className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
             style={{
-              paddingBottom: 'calc(2.25rem + env(safe-area-inset-bottom, 0px))'
+              paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))'
             }}
           >
             <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-6 sm:hidden" />

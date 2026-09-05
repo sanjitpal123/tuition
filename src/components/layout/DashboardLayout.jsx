@@ -18,6 +18,7 @@ import {
   Megaphone,
   User,
   ArrowLeft,
+  MoreHorizontal,
 } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { Input } from "../ui/Input";
@@ -277,7 +278,7 @@ export function DashboardLayout() {
           </div>
 
           {/* Mobile Top Header Bar for Sub-pages (except pages with custom dedicated mobile headers) */}
-          {!isDashboard && location.pathname !== '/batches' && location.pathname !== '/settings' && (
+          {!isDashboard && location.pathname !== '/batches' && location.pathname !== '/settings' && location.pathname !== '/students' && location.pathname !== '/attendance' && (
             <div 
               className="md:hidden sticky top-0 z-30 flex-shrink-0 bg-gradient-to-r from-red-600 via-red-600 to-rose-700 dark:from-[#140404] dark:via-[#110303] dark:to-[#080202] border-b border-red-500/20 dark:border-red-500/20 text-white shadow-md shadow-red-950/20 backdrop-blur-xl"
               style={{ 
@@ -324,7 +325,7 @@ export function DashboardLayout() {
           )}
 
           <main className="flex-1 pb-28 md:pb-8">
-            <div className={isDashboard || location.pathname === '/batches' || location.pathname === '/settings' ? "mt-0 md:mt-8" : "mt-3 md:mt-8"}>
+            <div className={isDashboard || location.pathname === '/batches' || location.pathname === '/settings' || location.pathname === '/students' ? "mt-0 md:mt-8" : "mt-3 md:mt-8"}>
               <div className={`max-w-7xl mx-auto ${isDashboard ? 'px-0 md:px-8' : 'px-4 sm:px-6 lg:px-8'}`}>
                 <Outlet />
               </div>
@@ -456,7 +457,7 @@ export function DashboardLayout() {
           </div>
         )}
 
-        {/* Mobile Bottom Navigation Bar (Matched to screenshot with Dashboard, Tools, Profile) */}
+        {/* Mobile Bottom Navigation Bar (Dashboard, Students, Batches, Fees, Profile, More) */}
         <div 
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 w-full bg-white/95 dark:bg-[#0c0f17]/95 backdrop-blur-2xl border-t border-zinc-200/80 dark:border-zinc-800/80 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)]"
           style={{
@@ -464,12 +465,12 @@ export function DashboardLayout() {
             paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
-          <div className="grid h-full w-full grid-cols-3 max-w-md mx-auto relative">
-            {/* Dashboard Tab */}
+          <div className="grid h-full w-full grid-cols-6 max-w-lg mx-auto relative px-0.5">
+            {/* 1. Dashboard Tab */}
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
-                `relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-all outline-none active:scale-95 ${
+                `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
                   isActive
                     ? "text-red-500 font-bold"
                     : "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 font-medium"
@@ -478,38 +479,25 @@ export function DashboardLayout() {
             >
               {({ isActive }) => (
                 <>
-                  {/* Top Glowing Indicator Pill */}
                   {isActive && (
-                    <span className="absolute top-0 w-12 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                   )}
                   <LayoutGrid
-                    className={`w-5 h-5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px] leading-tight tracking-tight">
+                  <span className="text-[10px] leading-tight tracking-tight">
                     Dashboard
                   </span>
                 </>
               )}
             </NavLink>
 
-            {/* Tools / Actions Drawer Tab */}
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="relative flex flex-col items-center justify-center w-full h-full space-y-1 text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all outline-none active:scale-95 cursor-pointer font-medium"
-            >
-              <Wrench 
-                className="w-5 h-5 stroke-[1.8]" 
-                aria-hidden="true"
-              />
-              <span className="text-[11px] leading-tight tracking-tight">Tools</span>
-            </button>
-
-            {/* Profile / Settings Tab */}
+            {/* 2. Students Tab */}
             <NavLink
-              to="/settings"
+              to="/students"
               className={({ isActive }) =>
-                `relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-all outline-none active:scale-95 ${
+                `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
                   isActive
                     ? "text-red-500 font-bold"
                     : "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 font-medium"
@@ -518,20 +506,112 @@ export function DashboardLayout() {
             >
               {({ isActive }) => (
                 <>
-                  {/* Top Glowing Indicator Pill */}
                   {isActive && (
-                    <span className="absolute top-0 w-12 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                   )}
-                  <User
-                    className={`w-5 h-5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                  <Users
+                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px] leading-tight tracking-tight">
+                  <span className="text-[10px] leading-tight tracking-tight">
+                    Student
+                  </span>
+                </>
+              )}
+            </NavLink>
+
+            {/* 3. Batches Tab */}
+            <NavLink
+              to="/batches"
+              className={({ isActive }) =>
+                `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
+                  isActive
+                    ? "text-red-500 font-bold"
+                    : "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 font-medium"
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  )}
+                  <BookOpen
+                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[10px] leading-tight tracking-tight">
+                    Batch
+                  </span>
+                </>
+              )}
+            </NavLink>
+
+            {/* 4. Fees Tab */}
+            <NavLink
+              to="/fees"
+              className={({ isActive }) =>
+                `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
+                  isActive
+                    ? "text-red-500 font-bold"
+                    : "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 font-medium"
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  )}
+                  <CreditCard
+                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[10px] leading-tight tracking-tight">
+                    Fees
+                  </span>
+                </>
+              )}
+            </NavLink>
+
+            {/* 5. Profile Tab */}
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
+                  isActive
+                    ? "text-red-500 font-bold"
+                    : "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 font-medium"
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute top-0 w-8 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  )}
+                  <User
+                    className={`w-4.5 h-4.5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[10px] leading-tight tracking-tight">
                     Profile
                   </span>
                 </>
               )}
             </NavLink>
+
+            {/* 6. More / Tools Drawer */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all outline-none active:scale-95 cursor-pointer font-medium"
+            >
+              <MoreHorizontal 
+                className="w-4.5 h-4.5 stroke-[1.8]" 
+                aria-hidden="true"
+              />
+              <span className="text-[10px] leading-tight tracking-tight">More</span>
+            </button>
           </div>
         </div>
       </div>

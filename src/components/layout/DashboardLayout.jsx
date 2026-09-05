@@ -2,6 +2,8 @@ import React from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
+  LayoutGrid,
+  Wrench,
   Users,
   BookOpen,
   Calendar,
@@ -33,7 +35,7 @@ const navigation = [
   { name: "Schedule", href: "/schedule", icon: Calendar },
   { name: "Attendance", href: "/attendance", icon: CheckSquare },
   { name: "Fees", href: "/fees", icon: CreditCard },
-  // { name: 'Tests & Results', href: '/tests', icon: Award },
+  { name: "Homework", href: "/homework", icon: BookOpen },
   { name: "Announcements", href: "/announcements", icon: Megaphone },
 ];
 
@@ -44,6 +46,7 @@ function getPageTitle(pathname) {
   if (pathname === '/schedule') return 'Class Schedule';
   if (pathname === '/attendance') return 'Attendance';
   if (pathname === '/fees') return 'Fee Records';
+  if (pathname === '/homework') return 'Homework & Tasks';
   if (pathname === '/announcements') return 'Announcements';
   if (pathname === '/notifications') return 'Notifications';
   if (pathname === '/settings') return 'Profile & Settings';
@@ -320,7 +323,7 @@ export function DashboardLayout() {
             </div>
           )}
 
-          <main className="flex-1 pb-24 md:pb-8">
+          <main className="flex-1 pb-28 md:pb-8">
             <div className={isDashboard ? "mt-0 md:mt-8" : "mt-3 md:mt-8"}>
               <div className={`max-w-7xl mx-auto ${isDashboard ? 'px-0 md:px-8' : 'px-4 sm:px-6 lg:px-8'}`}>
                 <Outlet />
@@ -455,31 +458,35 @@ export function DashboardLayout() {
 
         {/* Mobile Bottom Navigation Bar (Matched to screenshot with Dashboard, Tools, Profile) */}
         <div 
-          className="md:hidden fixed bottom-0 left-0 z-40 w-full bg-white/90 dark:bg-[#030303]/90 backdrop-blur-2xl border-t border-black/5 dark:border-white/5 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.4)]"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50 w-full bg-white/95 dark:bg-[#0c0f17]/95 backdrop-blur-2xl border-t border-zinc-200/80 dark:border-zinc-800/80 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)]"
           style={{
-            height: 'calc(3.8rem + env(safe-area-inset-bottom, 0px))',
+            height: 'calc(3.9rem + env(safe-area-inset-bottom, 0px))',
             paddingBottom: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
-          <div className="grid h-full w-full grid-cols-3 max-w-md mx-auto">
+          <div className="grid h-full w-full grid-cols-3 max-w-md mx-auto relative">
             {/* Dashboard Tab */}
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center w-full h-full space-y-1 transition-all outline-none active:scale-95 ${
+                `relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-all outline-none active:scale-95 ${
                   isActive
-                    ? "text-red-500 font-semibold"
-                    : "text-zinc-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400"
+                    ? "text-red-500 font-bold"
+                    : "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 font-medium"
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard
-                    className={`w-5 h-5 ${isActive ? "text-red-500 stroke-[2.5]" : "stroke-[1.8]"}`}
+                  {/* Top Glowing Indicator Pill */}
+                  {isActive && (
+                    <span className="absolute top-0 w-12 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  )}
+                  <LayoutGrid
+                    className={`w-5 h-5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px] leading-none">
+                  <span className="text-[11px] leading-tight tracking-tight">
                     Dashboard
                   </span>
                 </>
@@ -489,37 +496,37 @@ export function DashboardLayout() {
             {/* Tools / Actions Drawer Tab */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="flex flex-col items-center justify-center w-full h-full space-y-1 text-zinc-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-all outline-none active:scale-95"
+              className="relative flex flex-col items-center justify-center w-full h-full space-y-1 text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all outline-none active:scale-95 cursor-pointer font-medium"
             >
-              <svg 
+              <Wrench 
                 className="w-5 h-5 stroke-[1.8]" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-              </svg>
-              <span className="text-[11px] leading-none">Tools</span>
+                aria-hidden="true"
+              />
+              <span className="text-[11px] leading-tight tracking-tight">Tools</span>
             </button>
 
             {/* Profile / Settings Tab */}
             <NavLink
               to="/settings"
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center w-full h-full space-y-1 transition-all outline-none active:scale-95 ${
+                `relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-all outline-none active:scale-95 ${
                   isActive
-                    ? "text-red-500 font-semibold"
-                    : "text-zinc-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400"
+                    ? "text-red-500 font-bold"
+                    : "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 font-medium"
                 }`
               }
             >
               {({ isActive }) => (
                 <>
+                  {/* Top Glowing Indicator Pill */}
+                  {isActive && (
+                    <span className="absolute top-0 w-12 h-0.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  )}
                   <User
-                    className={`w-5 h-5 ${isActive ? "text-red-500 stroke-[2.5]" : "stroke-[1.8]"}`}
+                    className={`w-5 h-5 ${isActive ? "text-red-500 stroke-[2.4]" : "stroke-[1.8]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px] leading-none">
+                  <span className="text-[11px] leading-tight tracking-tight">
                     Profile
                   </span>
                 </>

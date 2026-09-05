@@ -17,6 +17,7 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Announcements from './pages/Announcements';
+import Homework from './pages/Homework';
 import StudentView from './pages/StudentView';
 import StudentDashboard from './pages/StudentDashboard';
 
@@ -81,6 +82,7 @@ function App() {
               <Route path="/tests" element={<Tests />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/announcements" element={<Announcements />} />
+              <Route path="/homework" element={<Homework />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
             </Route>

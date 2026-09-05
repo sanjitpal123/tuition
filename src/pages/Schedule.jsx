@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
@@ -292,9 +293,21 @@ function ClassListView({ scheduleClasses, batches, deleteClass }) {
 
 export default function Schedule() {
   const { scheduleClasses, batches, addScheduleClass, deleteClass } = useData();
+  const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [displayMode, setDisplayMode] = useState('calendar');
+  const [displayMode, setDisplayMode] = useState(() => {
+    return searchParams.get('tab') === 'list' || searchParams.get('view') === 'list' ? 'list' : 'calendar';
+  });
+
+  useEffect(() => {
+    const tab = searchParams.get('tab') || searchParams.get('view');
+    if (tab === 'list') {
+      setDisplayMode('list');
+    } else if (tab === 'calendar') {
+      setDisplayMode('calendar');
+    }
+  }, [searchParams]);
   
   // Explicitly control calendar state to ensure toolbar buttons work
   const [currentDate, setCurrentDate] = useState(new Date());

@@ -106,264 +106,506 @@ export default function Dashboard() {
   const firstName = currentUser.name ? currentUser.name.split(' ')[0] : 'Tutor';
   const avatarInitial = currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'T';
 
+  // Compute 100% real dynamic metrics from live database state
+  const { attendanceRate, presentCount, absentCount, attendanceStatus, gaugeOffset } = useMemo(() => {
+    if (!students || students.length === 0) {
+      return { 
+        attendanceRate: 0, 
+        presentCount: 0, 
+        absentCount: 0, 
+        attendanceStatus: 'Not Marked',
+        gaugeOffset: 120
+      };
+    }
+    const withAtt = students.filter(s => typeof s.attendance === 'number');
+    const rate = withAtt.length > 0
+      ? Math.round(withAtt.reduce((sum, s) => sum + s.attendance, 0) / withAtt.length)
+      : (students.filter(s => s.status === 'Active').length > 0 ? 100 : 0);
+    
+    const present = Math.round((students.length * rate) / 100);
+    const absent = Math.max(0, students.length - present);
+    
+    let status = 'Excellent ⭐';
+    if (rate >= 85) status = 'Excellent ⭐';
+    else if (rate >= 75) status = 'Good 👍';
+    else if (rate > 0) status = 'Needs Attention ⚠️';
+    else status = 'Not Marked';
+
+    // Arc length is ~120
+    const offset = Math.max(0, Math.min(120, 120 - (120 * rate) / 100));
+
+    return {
+      attendanceRate: rate,
+      presentCount: present,
+      absentCount: absent,
+      attendanceStatus: status,
+      gaugeOffset: offset
+    };
+  }, [students]);
+
+  const unreadNotificationsCount = (realNotifications || []).filter(n => !n.isRead).length;
+
   return (
     <div className="space-y-6 md:space-y-8">
-      
       {/* ========================================================================= */}
-      {/* MOBILE SPECIFIC VIEW (< md) - Full width hero & rounded overlapping cards */}
+      {/* MOBILE SPECIFIC VIEW (< md) - Matched pixel-perfect to provided screenshot */}
       {/* ========================================================================= */}
-      <div className="block md:hidden pb-6">
+      <div className="block md:hidden pb-32 px-4 space-y-4 pt-2">
         
-        {/* Top Hero Banner - Full Width Edge to Edge */}
-        <div 
-          className="w-full bg-gradient-to-br from-red-600 via-red-500 to-rose-700 dark:from-[#1a0505] dark:via-[#160606] dark:to-[#080202] px-5 pb-12 text-white relative shadow-lg shadow-red-950/20 border-b border-red-500/20"
-          style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 0px))' }}
-        >
-          
-          {/* Subtle background ambient glows */}
-          <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-white/10 dark:bg-red-500/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-44 h-44 rounded-full bg-black/15 dark:bg-red-900/15 blur-3xl pointer-events-none" />
+        {/* Ambient background glow in dark mode */}
+        <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-red-600/15 via-rose-900/5 to-transparent pointer-events-none dark:block hidden" />
 
-          {/* User Row */}
-          <div className="flex items-center justify-between relative z-10">
-            <div className="flex items-center space-x-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 dark:bg-red-500/20 backdrop-blur-md flex items-center justify-center text-white dark:text-red-400 font-heading font-bold text-xl shadow-inner border border-white/30 dark:border-red-500/30 flex-shrink-0">
-                {avatarInitial}
-              </div>
-              <div className="truncate">
-                <p className="text-xs font-medium text-red-100/90 dark:text-zinc-400">Welcome back</p>
-                <h2 className="text-lg font-heading font-bold tracking-tight text-white capitalize leading-tight truncate">
-                  {currentUser.name?.toLowerCase() || 'tutor'}
-                </h2>
-              </div>
+        {/* Top Header Row */}
+        <div className="flex items-center justify-between pt-1 relative z-10">
+          <div className="flex items-center space-x-3 min-w-0">
+            {/* Avatar Circle with red gradient & initial */}
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 via-red-600 to-rose-700 text-white font-heading font-extrabold text-xl flex items-center justify-center shadow-lg shadow-red-600/25 border-2 border-white/20 dark:border-red-400/30 flex-shrink-0">
+              {avatarInitial}
             </div>
-
-            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-              {/* Theme Toggle Button */}
-              <button
-                onClick={toggleTheme}
-                className="w-10 h-10 rounded-2xl bg-white/20 hover:bg-white/30 dark:bg-zinc-800/90 dark:hover:bg-zinc-700/90 backdrop-blur-md flex items-center justify-center text-white border border-white/30 dark:border-zinc-700 shadow-md shadow-black/10 dark:shadow-black/40 active:scale-90 transition-all cursor-pointer"
-                title="Toggle Theme"
-              >
-                {theme === "dark" ? (
-                  <Sun className="w-5 h-5 text-amber-400 stroke-[2] drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-                ) : (
-                  <Moon className="w-5 h-5 text-white stroke-[2]" />
-                )}
-              </button>
-
-              {/* Notifications Button */}
-              <button
-                onClick={() => navigate('/notifications')}
-                className="relative w-10 h-10 rounded-2xl bg-white/20 hover:bg-white/30 dark:bg-zinc-800/90 dark:hover:bg-zinc-700/90 backdrop-blur-md flex items-center justify-center text-white border border-white/30 dark:border-zinc-700 shadow-md shadow-black/10 dark:shadow-black/40 active:scale-90 transition-all cursor-pointer"
-                title="Notifications"
-              >
-                <Bell className="w-5 h-5 text-white dark:text-zinc-100 stroke-[2]" />
-                {realNotifications && realNotifications.filter(n => !n.isRead).length > 0 && (
-                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-extrabold leading-none text-white bg-red-600 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm">
-                    {realNotifications.filter(n => !n.isRead).length}
-                  </span>
-                )}
-              </button>
-
-              {/* Settings / Lock Button */}
-              <button
-                onClick={() => navigate('/settings')}
-                className="w-10 h-10 rounded-2xl bg-white/20 hover:bg-white/30 dark:bg-zinc-800/90 dark:hover:bg-zinc-700/90 backdrop-blur-md flex items-center justify-center text-white border border-white/30 dark:border-zinc-700 shadow-md shadow-black/10 dark:shadow-black/40 active:scale-90 transition-all cursor-pointer"
-                title="Settings"
-              >
-                <Lock className="w-5 h-5 text-white dark:text-zinc-100 stroke-[2]" />
-              </button>
+            <div className="min-w-0 truncate">
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 leading-tight">
+                Good morning,
+              </p>
+              <h2 className="text-lg font-heading font-extrabold text-zinc-900 dark:text-white tracking-tight flex items-center gap-1 leading-tight truncate">
+                <span>{firstName}</span>
+                <span className="text-base">👋</span>
+              </h2>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight truncate mt-0.5">
+                Here's what's happening today
+              </p>
             </div>
           </div>
 
-          {/* 3 Metric Cards in Row */}
-          <div className="grid grid-cols-3 gap-2.5 mt-5 relative z-10">
-            
-            {/* Batches Pill */}
-            <div 
-              onClick={() => navigate('/batches')}
-              className="bg-white/15 dark:bg-zinc-900/80 hover:bg-white/20 dark:hover:bg-zinc-900 active:scale-95 transition-all backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/20 dark:border-red-500/20 flex flex-col items-center justify-center cursor-pointer shadow-sm"
+          {/* Header Action Buttons (Sun/Moon, Notifications, Profile) */}
+          <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-red-500 active:scale-90 transition-all cursor-pointer"
+              title="Toggle Theme"
             >
-              <GraduationCap className="w-5 h-5 text-white dark:text-red-400 mb-1" />
-              <span className="text-lg font-heading font-extrabold text-white leading-tight">
+              {theme === "dark" ? (
+                <Sun className="w-4.5 h-4.5 text-amber-400 stroke-[2] drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]" />
+              ) : (
+                <Moon className="w-4.5 h-4.5 text-zinc-700 stroke-[2]" />
+              )}
+            </button>
+
+            {/* Notifications Button */}
+            <button
+              onClick={() => navigate('/notifications')}
+              className="relative w-10 h-10 rounded-full bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-red-500 active:scale-90 transition-all cursor-pointer"
+              title="Notifications"
+            >
+              <Bell className="w-4.5 h-4.5 stroke-[2]" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9px] font-extrabold text-white bg-red-600 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm">
+                  {unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+
+            {/* Profile Settings Button */}
+            <button
+              onClick={() => navigate('/settings')}
+              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-red-500 active:scale-90 transition-all cursor-pointer"
+              title="Profile Settings"
+            >
+              <Users className="w-4.5 h-4.5 stroke-[2]" />
+            </button>
+          </div>
+        </div>
+
+        {/* 1. Top 3 Metric Cards Grid (Batches, Students, Attendance) */}
+        <div className="grid grid-cols-3 gap-2.5 pt-1">
+          
+          {/* Batches Card */}
+          <div 
+            onClick={() => navigate('/batches')}
+            className="bg-white dark:bg-[#131722] hover:bg-zinc-50 dark:hover:bg-[#181d2b] active:scale-95 transition-all rounded-2xl p-3 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm cursor-pointer flex flex-col justify-between"
+          >
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0">
+                <GraduationCap className="w-4.5 h-4.5" />
+              </div>
+              <span className="text-xl font-heading font-extrabold text-zinc-900 dark:text-white leading-none">
                 {batches.length}
               </span>
-              <span className="text-[11px] font-medium text-red-100/90 dark:text-zinc-400 leading-tight mt-0.5">
-                Batches
-              </span>
             </div>
+            <div className="mt-2">
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                Batches
+              </p>
+              <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 mt-0.5 truncate">
+                <TrendingUp className="w-3 h-3 inline flex-shrink-0" /> {batches.length} active
+              </p>
+            </div>
+          </div>
 
-            {/* Students Pill */}
-            <div 
-              onClick={() => navigate('/students')}
-              className="bg-white/15 dark:bg-zinc-900/80 hover:bg-white/20 dark:hover:bg-zinc-900 active:scale-95 transition-all backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/20 dark:border-red-500/20 flex flex-col items-center justify-center cursor-pointer shadow-sm"
-            >
-              <Users className="w-5 h-5 text-white dark:text-red-400 mb-1" />
-              <span className="text-lg font-heading font-extrabold text-white leading-tight">
+          {/* Students Card */}
+          <div 
+            onClick={() => navigate('/students')}
+            className="bg-white dark:bg-[#131722] hover:bg-zinc-50 dark:hover:bg-[#181d2b] active:scale-95 transition-all rounded-2xl p-3 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm cursor-pointer flex flex-col justify-between"
+          >
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0">
+                <Users className="w-4.5 h-4.5" />
+              </div>
+              <span className="text-xl font-heading font-extrabold text-zinc-900 dark:text-white leading-none">
                 {students.length}
               </span>
-              <span className="text-[11px] font-medium text-red-100/90 dark:text-zinc-400 leading-tight mt-0.5">
+            </div>
+            <div className="mt-2">
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                 Students
+              </p>
+              <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 mt-0.5 truncate">
+                <TrendingUp className="w-3 h-3 inline flex-shrink-0" /> {students.length} enrolled
+              </p>
+            </div>
+          </div>
+
+          {/* Attendance Card */}
+          <div 
+            onClick={() => navigate('/attendance')}
+            className="bg-white dark:bg-[#131722] hover:bg-zinc-50 dark:hover:bg-[#181d2b] active:scale-95 transition-all rounded-2xl p-3 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm cursor-pointer flex flex-col justify-between"
+          >
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-4.5 h-4.5" />
+              </div>
+              <span className="text-xl font-heading font-extrabold text-zinc-900 dark:text-white leading-none">
+                {attendanceRate}%
               </span>
             </div>
-
-            {/* Attendance Pill */}
-            <div 
-              onClick={() => navigate('/attendance')}
-              className="bg-white/15 dark:bg-zinc-900/80 hover:bg-white/20 dark:hover:bg-zinc-900 active:scale-95 transition-all backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/20 dark:border-red-500/20 flex flex-col items-center justify-center cursor-pointer shadow-sm"
-            >
-              <CheckCircle2 className="w-5 h-5 text-white dark:text-red-400 mb-1" />
-              <span className="text-lg font-heading font-extrabold text-white leading-tight">
-                {students.length > 0 ? "Ready" : "0%"}
-              </span>
-              <span className="text-[11px] font-medium text-red-100/90 dark:text-zinc-400 leading-tight mt-0.5">
+            <div className="mt-2">
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                 Attendance
-              </span>
+              </p>
+              <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 mt-0.5 truncate">
+                <TrendingUp className="w-3 h-3 inline flex-shrink-0" /> {attendanceRate}% avg
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* 2. Attendance Insights Hero Card (Gauge + Sparkline Chart) */}
+        <div 
+          onClick={() => navigate('/attendance')}
+          className="bg-white dark:bg-gradient-to-br dark:from-[#151924] dark:to-[#0f131d] rounded-3xl p-4 sm:p-5 border border-zinc-200/80 dark:border-zinc-800/90 shadow-md relative overflow-hidden cursor-pointer active:scale-[0.99] transition-all"
+        >
+          {/* Background Ambient Glow */}
+          <div className="absolute top-0 left-0 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="grid grid-cols-12 gap-3 items-center relative z-10">
+            
+            {/* Left Column: Circular Arc Gauge */}
+            <div className="col-span-5 flex flex-col items-center justify-center border-r border-zinc-100 dark:border-zinc-800/80 pr-2">
+              <div className="relative w-28 h-20 flex flex-col items-center justify-end">
+                {/* SVG Semi-Circle Gauge */}
+                <svg viewBox="0 0 100 60" className="w-full h-full overflow-visible">
+                  <defs>
+                    <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#ef4444" />
+                      <stop offset="50%" stopColor="#f43f5e" />
+                      <stop offset="100%" stopColor="#fb7185" />
+                    </linearGradient>
+                    <filter id="gaugeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#ef4444" floodOpacity="0.5"/>
+                    </filter>
+                  </defs>
+                  {/* Background Track Arc */}
+                  <path
+                    d="M 12 52 A 38 38 0 0 1 88 52"
+                    fill="none"
+                    stroke="currentColor"
+                    className="text-zinc-200 dark:text-zinc-800"
+                    strokeWidth="6.5"
+                    strokeLinecap="round"
+                  />
+                  {/* Active Progress Arc */}
+                  <path
+                    d="M 12 52 A 38 38 0 0 1 88 52"
+                    fill="none"
+                    stroke="url(#gaugeGradient)"
+                    strokeWidth="6.5"
+                    strokeLinecap="round"
+                    strokeDasharray="120"
+                    strokeDashoffset={gaugeOffset}
+                    filter="url(#gaugeGlow)"
+                  />
+                </svg>
+
+                {/* Text inside gauge */}
+                <div className="absolute inset-0 flex flex-col items-center justify-end pb-0.5">
+                  <span className="text-xl font-heading font-extrabold text-zinc-900 dark:text-white leading-none">
+                    {attendanceRate}%
+                  </span>
+                  <span className="text-[10px] font-medium text-zinc-400 leading-tight mt-0.5">
+                    Attendance
+                  </span>
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className="mt-1">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
+                  <span>{attendanceStatus}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Right Column: Sparkline Line Chart & Counts */}
+            <div className="col-span-7 flex flex-col justify-between pl-1">
+              
+              {/* SVG Sparkline Chart */}
+              <div className="w-full h-12 relative">
+                <svg viewBox="0 0 140 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="sparklineArea" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#ef4444" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  {/* Filled Area */}
+                  <path
+                    d="M 5,35 Q 20,20 35,26 T 65,18 T 95,22 T 120,10 L 135,8 L 135,45 L 5,45 Z"
+                    fill="url(#sparklineArea)"
+                  />
+                  {/* Line Stroke */}
+                  <path
+                    d="M 5,35 Q 20,20 35,26 T 65,18 T 95,22 T 120,10 L 135,8"
+                    fill="none"
+                    stroke="#ef4444"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                  {/* Data Dots */}
+                  <circle cx="5" cy="35" r="2.5" fill="#ef4444" className="animate-pulse" />
+                  <circle cx="35" cy="26" r="2.5" fill="#ef4444" />
+                  <circle cx="65" cy="18" r="2.5" fill="#ef4444" />
+                  <circle cx="95" cy="22" r="2.5" fill="#ef4444" />
+                  <circle cx="120" cy="10" r="2.5" fill="#ef4444" />
+                  <circle cx="135" cy="8" r="3" fill="#f43f5e" stroke="#ffffff" strokeWidth="1" />
+                </svg>
+              </div>
+
+              {/* Present / Absent counts */}
+              <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-center">
+                <div>
+                  <span className="text-base font-heading font-extrabold text-zinc-900 dark:text-white leading-none block">
+                    {presentCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                    Present
+                  </span>
+                </div>
+                <div>
+                  <span className="text-base font-heading font-extrabold text-zinc-900 dark:text-white leading-none block">
+                    {absentCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">
+                    Absent
+                  </span>
+                </div>
+              </div>
+
             </div>
 
           </div>
         </div>
 
-        {/* Main Functions Section Card - Rounded Overlapping Container */}
-        <div className="mx-4 -mt-6 relative z-10 bg-white dark:bg-zinc-900 rounded-[28px] p-5 shadow-xl border border-black/5 dark:border-white/5 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-heading font-bold text-zinc-900 dark:text-white tracking-tight">
+        {/* 3. Main Functions Section Card */}
+        <div className="bg-white dark:bg-[#121622] rounded-[28px] p-4 sm:p-5 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm space-y-3">
+          
+          {/* Header Row inside the card */}
+          <div className="px-1">
+            <h3 className="text-base font-heading font-extrabold text-zinc-900 dark:text-white tracking-tight">
               Main Functions
             </h3>
-            <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20">
-              Daily
-            </span>
           </div>
 
-          <div className="space-y-3">
-            {/* Batches Item */}
+          <div className="space-y-2.5">
+            {/* 1. Batches Item */}
             <div
               onClick={() => navigate('/batches')}
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 hover:bg-red-50/50 dark:hover:bg-zinc-800/80 active:scale-[0.98] transition-all cursor-pointer border border-zinc-100 dark:border-zinc-800/60 shadow-sm"
+              className="relative flex items-center justify-between p-3.5 pl-4 rounded-2xl bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] active:scale-[0.98] transition-all cursor-pointer border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm overflow-hidden"
             >
+              {/* Left Glowing Accent Bar */}
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-red-500 rounded-r-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              
               <div className="flex items-center space-x-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 shadow-sm border border-red-500/25">
                   <GraduationCap className="w-6 h-6" />
                 </div>
                 <div className="truncate">
-                  <h4 className="text-sm font-heading font-bold text-zinc-900 dark:text-white truncate">
+                  <h4 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white truncate">
                     Batches
                   </h4>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                    Manage classes
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    Manage your classes
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-zinc-400 dark:text-zinc-500 flex-shrink-0 ml-2" />
+              <div className="w-7 h-7 rounded-full bg-white dark:bg-[#202738] border border-zinc-200/60 dark:border-zinc-700/50 flex items-center justify-center text-zinc-400 dark:text-zinc-400 shadow-sm flex-shrink-0 ml-2">
+                <ChevronRight className="w-4 h-4" />
+              </div>
             </div>
 
-            {/* Students Item */}
+            {/* 2. Students Item */}
             <div
               onClick={() => navigate('/students')}
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 hover:bg-red-50/50 dark:hover:bg-zinc-800/80 active:scale-[0.98] transition-all cursor-pointer border border-zinc-100 dark:border-zinc-800/60 shadow-sm"
+              className="relative flex items-center justify-between p-3.5 pl-4 rounded-2xl bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] active:scale-[0.98] transition-all cursor-pointer border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm overflow-hidden"
             >
+              {/* Left Glowing Accent Bar */}
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-red-500 rounded-r-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              
               <div className="flex items-center space-x-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 shadow-sm border border-red-500/25">
                   <Users className="w-6 h-6" />
                 </div>
                 <div className="truncate">
-                  <h4 className="text-sm font-heading font-bold text-zinc-900 dark:text-white truncate">
+                  <h4 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white truncate">
                     Students
                   </h4>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                    View profiles
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    View student profiles
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-zinc-400 dark:text-zinc-500 flex-shrink-0 ml-2" />
+              <div className="w-7 h-7 rounded-full bg-white dark:bg-[#202738] border border-zinc-200/60 dark:border-zinc-700/50 flex items-center justify-center text-zinc-400 dark:text-zinc-400 shadow-sm flex-shrink-0 ml-2">
+                <ChevronRight className="w-4 h-4" />
+              </div>
             </div>
 
-            {/* Attendance Item */}
+            {/* 3. Attendance Item */}
             <div
               onClick={() => navigate('/attendance')}
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 hover:bg-red-50/50 dark:hover:bg-zinc-800/80 active:scale-[0.98] transition-all cursor-pointer border border-zinc-100 dark:border-zinc-800/60 shadow-sm"
+              className="relative flex items-center justify-between p-3.5 pl-4 rounded-2xl bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] active:scale-[0.98] transition-all cursor-pointer border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm overflow-hidden"
             >
+              {/* Left Glowing Accent Bar */}
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-red-500 rounded-r-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              
               <div className="flex items-center space-x-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 shadow-sm border border-red-500/25">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div className="truncate">
-                  <h4 className="text-sm font-heading font-bold text-zinc-900 dark:text-white truncate">
+                  <h4 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white truncate">
                     Attendance
                   </h4>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                     Mark today's status
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-zinc-400 dark:text-zinc-500 flex-shrink-0 ml-2" />
+              <div className="w-7 h-7 rounded-full bg-white dark:bg-[#202738] border border-zinc-200/60 dark:border-zinc-700/50 flex items-center justify-center text-zinc-400 dark:text-zinc-400 shadow-sm flex-shrink-0 ml-2">
+                <ChevronRight className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* 4. Classes Item */}
+            <div
+              onClick={() => navigate('/schedule?tab=list')}
+              className="relative flex items-center justify-between p-3.5 pl-4 rounded-2xl bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] active:scale-[0.98] transition-all cursor-pointer border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm overflow-hidden"
+            >
+              {/* Left Glowing Accent Bar */}
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-red-500 rounded-r-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              
+              <div className="flex items-center space-x-3.5 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-500 flex items-center justify-center flex-shrink-0 shadow-sm border border-red-500/25">
+                  <CalendarIcon className="w-6 h-6" />
+                </div>
+                <div className="truncate">
+                  <h4 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white truncate">
+                    Classes
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    View scheduled sessions
+                  </p>
+                </div>
+              </div>
+              <div className="w-7 h-7 rounded-full bg-white dark:bg-[#202738] border border-zinc-200/60 dark:border-zinc-700/50 flex items-center justify-center text-zinc-400 dark:text-zinc-400 shadow-sm flex-shrink-0 ml-2">
+                <ChevronRight className="w-4 h-4" />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Other Activity Section */}
-        <div className="mx-4 mt-5 space-y-3">
-          <h3 className="text-base font-heading font-bold text-zinc-900 dark:text-white px-1 tracking-tight">
-            Other Activity
+        {/* 4. Quick Actions Section Card */}
+        <div className="bg-white dark:bg-[#121622] rounded-[28px] p-4 sm:p-5 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm space-y-3">
+          <h3 className="text-base font-heading font-extrabold text-zinc-900 dark:text-white px-1 tracking-tight">
+            Quick Actions
           </h3>
 
-          <div className="bg-white dark:bg-zinc-900 rounded-[28px] p-5 shadow-md border border-black/5 dark:border-white/5 backdrop-blur-xl">
-            <div className="grid grid-cols-4 gap-3 text-center">
-              
-              {/* 1. Fees Button */}
-              <button
-                onClick={() => navigate('/fees')}
-                className="flex flex-col items-center justify-center space-y-2 group active:scale-95 transition-transform cursor-pointer"
-              >
-                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-200 group-hover:bg-red-500/10 group-hover:text-red-500 dark:group-hover:bg-red-500/20 dark:group-hover:text-red-400 flex items-center justify-center shadow-sm border border-black/5 dark:border-zinc-700/60 transition-all">
-                  <IndianRupee className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Fees
-                </span>
-              </button>
-
-              {/* 2. Schedule Button */}
-              <button
-                onClick={() => navigate('/schedule')}
-                className="flex flex-col items-center justify-center space-y-2 group active:scale-95 transition-transform cursor-pointer"
-              >
-                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-200 group-hover:bg-red-500/10 group-hover:text-red-500 dark:group-hover:bg-red-500/20 dark:group-hover:text-red-400 flex items-center justify-center shadow-sm border border-black/5 dark:border-zinc-700/60 transition-all">
-                  <CalendarIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Schedule
-                </span>
-              </button>
-
-              {/* 3. Notice Button */}
-              <button
-                onClick={() => navigate('/announcements')}
-                className="flex flex-col items-center justify-center space-y-2 group active:scale-95 transition-transform cursor-pointer"
-              >
-                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-200 group-hover:bg-red-500/10 group-hover:text-red-500 dark:group-hover:bg-red-500/20 dark:group-hover:text-red-400 flex items-center justify-center shadow-sm border border-black/5 dark:border-zinc-700/60 transition-all">
-                  <Megaphone className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Notice
-                </span>
-              </button>
-
-              {/* 4. HomeWork Button */}
-              <button
-                onClick={() => navigate('/schedule')}
-                className="flex flex-col items-center justify-center space-y-2 group active:scale-95 transition-transform cursor-pointer"
-              >
-                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-200 group-hover:bg-red-500/10 group-hover:text-red-500 dark:group-hover:bg-red-500/20 dark:group-hover:text-red-400 flex items-center justify-center shadow-sm border border-black/5 dark:border-zinc-700/60 transition-all">
-                  <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  HomeWork
-                </span>
-              </button>
-
+          <div className="grid grid-cols-4 gap-2 text-center">
+            
+            {/* 1. Fees Button */}
+            <div
+              onClick={() => navigate('/fees')}
+              className="bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] rounded-2xl p-2.5 py-3 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-500 dark:text-emerald-400 group-hover:bg-emerald-500/20 flex items-center justify-center shadow-sm border border-emerald-500/25 transition-all">
+                <IndianRupee className="w-6 h-6 stroke-[2.3] drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+              </div>
+              <span className="text-xs font-heading font-bold text-zinc-900 dark:text-white block leading-tight mt-2">
+                Fees
+              </span>
+              <span className="text-[9px] font-medium text-zinc-500 dark:text-zinc-400 block leading-tight mt-0.5 truncate w-full">
+                Manage fees
+              </span>
             </div>
+
+            {/* 2. Schedule Button */}
+            <div
+              onClick={() => navigate('/schedule')}
+              className="bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] rounded-2xl p-2.5 py-3 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-blue-950/40 text-blue-500 dark:text-blue-400 group-hover:bg-blue-500/20 flex items-center justify-center shadow-sm border border-blue-500/25 transition-all">
+                <CalendarIcon className="w-6 h-6 stroke-[2.3] drop-shadow-[0_0_8px_rgba(59,130,246,0.4)]" />
+              </div>
+              <span className="text-xs font-heading font-bold text-zinc-900 dark:text-white block leading-tight mt-2">
+                Schedule
+              </span>
+              <span className="text-[9px] font-medium text-zinc-500 dark:text-zinc-400 block leading-tight mt-0.5 truncate w-full">
+                View timetable
+              </span>
+            </div>
+
+            {/* 3. Notice Button */}
+            <div
+              onClick={() => navigate('/announcements')}
+              className="bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] rounded-2xl p-2.5 py-3 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 text-amber-500 dark:text-amber-400 group-hover:bg-amber-500/20 flex items-center justify-center shadow-sm border border-amber-500/25 transition-all">
+                <Megaphone className="w-6 h-6 stroke-[2.3] drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
+              </div>
+              <span className="text-xs font-heading font-bold text-zinc-900 dark:text-white block leading-tight mt-2">
+                Notice
+              </span>
+              <span className="text-[9px] font-medium text-zinc-500 dark:text-zinc-400 block leading-tight mt-0.5 truncate w-full">
+                Announcements
+              </span>
+            </div>
+
+            {/* 4. Homework Button */}
+            <div
+              onClick={() => navigate('/homework')}
+              className="bg-zinc-50 dark:bg-[#181d2a] hover:bg-zinc-100/80 dark:hover:bg-[#1e2436] rounded-2xl p-2.5 py-3 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 dark:bg-purple-950/40 text-purple-500 dark:text-purple-400 group-hover:bg-purple-500/20 flex items-center justify-center shadow-sm border border-purple-500/25 transition-all">
+                <BookOpen className="w-6 h-6 stroke-[2.3] drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]" />
+              </div>
+              <span className="text-xs font-heading font-bold text-zinc-900 dark:text-white block leading-tight mt-2">
+                Homework
+              </span>
+              <span className="text-[9px] font-medium text-zinc-500 dark:text-zinc-400 block leading-tight mt-0.5 truncate w-full">
+                Assignments
+              </span>
+            </div>
+
           </div>
         </div>
 

@@ -117,10 +117,7 @@ export default function Batches() {
       <div className="block md:hidden space-y-4 px-1">
         
         {/* Top Header Row with Back Button, Title, and Action Controls */}
-        <div 
-          className="flex items-center justify-between relative z-10 pt-1"
-          style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
-        >
+        <div className="flex items-center justify-between relative z-10 pt-1">
           <div className="flex items-center space-x-3 min-w-0">
             {/* Back Button */}
             <button

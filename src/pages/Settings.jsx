@@ -133,10 +133,7 @@ export default function Settings() {
       {/* ========================================================================= */}
       {/* MOBILE HEADER (Matches design screenshot) */}
       {/* ========================================================================= */}
-      <div 
-        className="flex items-center justify-between relative z-10 pt-1 px-1 sm:px-0"
-        style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
-      >
+      <div className="flex items-center justify-between relative z-10 pt-1 px-1 sm:px-0">
         <div className="flex items-center space-x-3 min-w-0">
           <button
             onClick={() => navigate(-1)}

@@ -90,6 +90,11 @@ export default function StudentHomework() {
                     <p className="text-zinc-600 dark:text-zinc-400 text-sm mt-2">
                       {task.description}
                     </p>
+                    {task.imageUrl && (
+                      <div className="mt-4 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                        <img src={task.imageUrl} alt="Homework Attachment" className="w-full max-h-48 object-cover hover:opacity-90 transition-opacity cursor-pointer" onClick={() => window.open(task.imageUrl, '_blank')} />
+                      </div>
+                    )}
                   </div>
                   
                   <div className="mt-6 flex items-center justify-between pt-4 border-t border-zinc-100 dark:border-zinc-800">

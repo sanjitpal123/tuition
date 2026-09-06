@@ -50,7 +50,8 @@ export default function Homework() {
     subject: '',
     batchId: '',
     dueDate: '',
-    description: ''
+    description: '',
+    image: null
   });
 
   // Fetch homework assignments
@@ -92,26 +93,41 @@ export default function Homework() {
     setIsSubmitting(true);
     try {
       const selectedBatch = batches.find(b => (b.id === formData.batchId || b._id === formData.batchId));
-      const payload = {
-        title: formData.title.trim(),
-        subject: formData.subject.trim(),
-        batchId: formData.batchId,
-        batchName: selectedBatch?.name || 'Assigned Batch',
-        dueDate: new Date(formData.dueDate).toISOString(),
-        description: formData.description.trim(),
-        createdAt: new Date().toISOString()
-      };
+      
+      const payloadData = new FormData();
+      payloadData.append('title', formData.title.trim());
+      payloadData.append('subject', formData.subject.trim());
+      payloadData.append('batchId', formData.batchId);
+      payloadData.append('batchName', selectedBatch?.name || 'Assigned Batch');
+      payloadData.append('dueDate', new Date(formData.dueDate).toISOString());
+      if (formData.description) payloadData.append('description', formData.description.trim());
+      payloadData.append('createdAt', new Date().toISOString());
+      
+      if (formData.image) {
+        payloadData.append('image', formData.image);
+      }
 
       let createdItem = null;
       try {
-        const res = await api.post('/homework', payload);
+        const res = await api.post('/homework', payloadData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
         createdItem = res.data;
       } catch (apiErr) {
         console.warn('Backend /homework endpoint not reachable, saving locally:', apiErr);
         createdItem = {
-          ...payload,
+          title: formData.title.trim(),
+          subject: formData.subject.trim(),
+          batchId: formData.batchId,
+          batchName: selectedBatch?.name || 'Assigned Batch',
+          dueDate: new Date(formData.dueDate).toISOString(),
+          description: formData.description.trim(),
+          createdAt: new Date().toISOString(),
           _id: 'hw_' + Date.now(),
-          id: 'hw_' + Date.now()
+          id: 'hw_' + Date.now(),
+          imageUrl: formData.image ? URL.createObjectURL(formData.image) : null
         };
       }
 
@@ -125,7 +141,8 @@ export default function Homework() {
         subject: '',
         batchId: '',
         dueDate: '',
-        description: ''
+        description: '',
+        image: null
       });
     } catch (err) {
       console.error(err);
@@ -385,6 +402,13 @@ export default function Homework() {
                   </p>
                 )}
 
+                {/* Image Attachment */}
+                {item.imageUrl && (
+                  <div className="mt-2 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                    <img src={item.imageUrl} alt="Homework Attachment" className="w-full max-h-40 object-cover hover:opacity-90 transition-opacity cursor-pointer" onClick={() => window.open(item.imageUrl, '_blank')} />
+                  </div>
+                )}
+
                 {/* Bottom Metadata: Batch & Due Date */}
                 <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
                   <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300 font-semibold">
@@ -551,6 +575,13 @@ export default function Homework() {
                         {item.description}
                       </p>
                     )}
+
+                    {/* Image Attachment */}
+                    {item.imageUrl && (
+                      <div className="mt-3 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                        <img src={item.imageUrl} alt="Homework Attachment" className="w-full h-32 object-cover hover:opacity-90 transition-opacity cursor-pointer" onClick={() => window.open(item.imageUrl, '_blank')} />
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs">
@@ -654,6 +685,16 @@ export default function Homework() {
                   value={formData.description}
                   onChange={e => setFormData({...formData, description: e.target.value})}
                   className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/20 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Attach Image (Optional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setFormData({...formData, image: e.target.files[0]})}
+                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-zinc-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
                 />
               </div>
 

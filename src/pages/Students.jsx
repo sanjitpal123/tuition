@@ -168,10 +168,7 @@ export default function Students() {
       <div className="block md:hidden space-y-3.5 px-1">
 
         {/* 1. Top Header Row */}
-        <div 
-          className="flex items-center justify-between relative z-10 pt-1"
-          style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
-        >
+        <div className="flex items-center justify-between relative z-10 pt-1">
           <div className="flex items-center space-x-3 min-w-0">
             <button
               onClick={() => navigate(-1)}

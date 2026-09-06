@@ -191,10 +191,10 @@ export default function Dashboard() {
       {/* ========================================================================= */}
       {/* MOBILE SPECIFIC VIEW (< md) - Matched pixel-perfect to provided screenshot */}
       {/* ========================================================================= */}
-      <div 
+      <div
         className="block md:hidden pb-36 px-4 space-y-4"
         style={{
-          paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))'
+          paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))",
         }}
       >
         {/* Ambient background glow in dark mode */}

@@ -40,9 +40,7 @@ export default function Fees() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [receiptData, setReceiptData] = useState(null);
-  const [showReceipt, setShowReceipt] = useState(false);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [isEditFeeModalOpen, setIsEditFeeModalOpen] = useState(false);
   const [editingFeeStudent, setEditingFeeStudent] = useState(null);
   const [newFeeAmount, setNewFeeAmount] = useState('');
@@ -143,8 +141,6 @@ export default function Fees() {
       });
       setIsModalOpen(false);
       setSelectedStudentId('');
-      setReceiptData({ student, amount: student.monthlyFee || 0, date: new Date() });
-      setShowReceipt(true);
     } catch (err) {
       alert("Failed to record payment.");
     } finally {
@@ -164,8 +160,6 @@ export default function Fees() {
         amount: student.monthlyFee || 0,
         month: selectedMonth
       });
-      setReceiptData({ student, amount: student.monthlyFee || 0, date: new Date() });
-      setShowReceipt(true);
     } catch (err) {
       alert("Failed to record payment.");
     } finally {
@@ -455,17 +449,12 @@ export default function Fees() {
                   {/* Actions Row */}
                   <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
                     {student.computedFeeStatus === 'Paid' ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReceiptData({ student, amount: student.monthlyFee || 0, date: new Date() });
-                          setShowReceipt(true);
-                        }}
-                        className="flex-1 py-2 px-3 rounded-xl border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                      <div
+                        className="flex-1 py-2 px-3 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5"
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View Receipt</span>
-                      </button>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Paid</span>
+                      </div>
                     ) : (
                       <button
                         type="button"
@@ -656,12 +645,7 @@ export default function Fees() {
                       {student.computedFeeStatus !== 'Paid' && (
                         <Button size="sm" onClick={() => handleMarkPaid(student.id)}>Mark Paid</Button>
                       )}
-                      {student.computedFeeStatus === 'Paid' && (
-                        <Button size="sm" variant="outline" onClick={() => {
-                          setReceiptData({ student, amount: student.monthlyFee || 0, date: new Date() });
-                          setShowReceipt(true);
-                        }}>Receipt</Button>
-                      )}
+
                       <button onClick={() => handleOpenEditFee(student)} className="text-zinc-400 hover:text-blue-500 p-1 transition-colors" title="Edit Fee Amount">
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -742,34 +726,7 @@ export default function Fees() {
         </div>
       )}
 
-      {/* Receipt Modal */}
-      {showReceipt && receiptData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
-            <button onClick={() => setShowReceipt(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-            <div id="receipt-content" className="p-4 text-center">
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Payment Receipt</h2>
-              <p className="text-sm text-zinc-500 mb-6">{receiptData.date.toLocaleDateString()}</p>
-              
-              <div className="space-y-2 text-left mb-6 text-sm">
-                <p><span className="font-semibold text-zinc-700 dark:text-zinc-300">Student:</span> {receiptData.student.name}</p>
-                <p><span className="font-semibold text-zinc-700 dark:text-zinc-300">Batch:</span> {receiptData.student.batchName}</p>
-                <p><span className="font-semibold text-zinc-700 dark:text-zinc-300">Amount Paid:</span> ₹{receiptData.amount}</p>
-                <p><span className="font-semibold text-zinc-700 dark:text-zinc-300">Month:</span> {receiptData.date.toISOString().slice(0, 7)}</p>
-              </div>
-              <div className="border-t border-dashed border-zinc-300 dark:border-zinc-700 pt-4">
-                <p className="text-xs text-zinc-400">Thank you for your payment!</p>
-              </div>
-            </div>
-            <div className="mt-4 flex gap-3">
-              <Button className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold" onClick={() => window.print()}>Print Receipt</Button>
-              <Button variant="outline" className="flex-1" onClick={() => setShowReceipt(false)}>Close</Button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Edit Fee Modal */}
       {isEditFeeModalOpen && (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, parseISO, getDay } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Avatar } from '../components/ui/Avatar';
@@ -70,9 +71,7 @@ export default function StudentView() {
   const [paymentMonth, setPaymentMonth] = useState(new Date().toISOString().slice(0, 7));
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
 
-  // Receipt Modal State
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [receiptData, setReceiptData] = useState(null);
+
 
   // Copy Feedback
   const [copiedKey, setCopiedKey] = useState(false);
@@ -233,13 +232,6 @@ export default function StudentView() {
         month: paymentMonth
       });
       setIsPayModalOpen(false);
-      setReceiptData({
-        student,
-        amount: Number(paymentAmount) || student.monthlyFee || 0,
-        date: new Date(),
-        month: paymentMonth
-      });
-      setShowReceipt(true);
       refreshData();
     } catch (err) {
       alert("Failed to record fee payment.");
@@ -253,6 +245,69 @@ export default function StudentView() {
     navigator.clipboard.writeText(text);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
+  };
+
+  const renderCalendar = () => {
+    if (!selectedMonth || !stats || !stats.records) return null;
+    
+    try {
+      const monthDate = parseISO(selectedMonth + '-01');
+      const start = startOfMonth(monthDate);
+      const end = endOfMonth(monthDate);
+      const days = eachDayOfInterval({ start, end });
+      const firstDayOfWeek = getDay(start); // 0 = Sunday, 1 = Monday
+      
+      const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+      
+      return (
+        <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+          <h4 className="text-xs font-semibold text-zinc-500 mb-3 uppercase tracking-wider text-center">Monthly Calendar</h4>
+          
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] mb-1">
+            {weekdays.map(day => (
+              <div key={day} className="text-zinc-400 font-medium py-1">{day}</div>
+            ))}
+          </div>
+          
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+              <div key={`empty-${i}`} className="p-1"></div>
+            ))}
+            
+            {days.map(day => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const record = stats.records.find(r => r.date === dateStr);
+              
+              let bgColor = "bg-zinc-100 dark:bg-zinc-800/50 text-zinc-400 dark:text-zinc-600";
+              
+              if (record) {
+                if (record.tution_present === 'Present') {
+                  bgColor = "bg-emerald-500 text-white font-bold shadow-sm shadow-emerald-500/20";
+                } else if (record.tution_present === 'Absent') {
+                  bgColor = "bg-red-500 text-white font-bold shadow-sm shadow-red-500/20";
+                } else if (record.tution_present === 'Late') {
+                  bgColor = "bg-amber-500 text-white font-bold shadow-sm shadow-amber-500/20";
+                }
+              }
+              
+              return (
+                <div key={dateStr} className={`p-1.5 rounded-md text-xs flex items-center justify-center transition-all ${bgColor}`}>
+                  {format(day, 'd')}
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-emerald-500"></div> Present</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-red-500"></div> Absent</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-amber-500"></div> Late</div>
+          </div>
+        </div>
+      );
+    } catch (e) {
+      return null;
+    }
   };
 
   return (
@@ -559,6 +614,7 @@ export default function StudentView() {
                         : 0}%
                     </span>
                   </div>
+                  {renderCalendar()}
                 </CardContent>
               </Card>
             </div>
@@ -679,7 +735,7 @@ export default function StudentView() {
               <CardTitle className="text-base flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-red-500" />
-                  Payment History & Receipts
+                  Payment History
                 </span>
                 <span className="text-xs font-normal text-zinc-500">
                   {studentFeeHistory.length} Recorded Payments
@@ -706,23 +762,6 @@ export default function StudentView() {
 
                       <div className="flex items-center space-x-2">
                         <Badge variant="success">Paid</Badge>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => {
-                            setReceiptData({
-                              student,
-                              amount: payment.amount,
-                              date: new Date(payment.createdAt || payment.paymentDate || Date.now()),
-                              month: payment.month
-                            });
-                            setShowReceipt(true);
-                          }}
-                          className="text-xs h-8 flex items-center gap-1"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>Receipt</span>
-                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1060,59 +1099,6 @@ export default function StudentView() {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* RECEIPT MODAL */}
-      {/* ========================================================================= */}
-      {showReceipt && receiptData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-sm p-6 relative">
-            <button onClick={() => setShowReceipt(false)} className="absolute top-5 right-5 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-            <div id="receipt-content" className="text-center pt-2">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-950/40 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-heading font-black text-zinc-900 dark:text-white">Fee Receipt</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">{receiptData.date.toLocaleDateString()}</p>
-
-              <div className="mt-5 space-y-2.5 text-left text-xs bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/50">
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Student:</span>
-                  <span className="font-semibold text-zinc-900 dark:text-white">{receiptData.student.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Batch:</span>
-                  <span className="font-medium text-zinc-900 dark:text-white">{receiptData.student.batchName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Amount Paid:</span>
-                  <span className="font-bold text-green-600 dark:text-green-400 text-sm">₹{receiptData.amount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">For Month:</span>
-                  <span className="font-medium text-zinc-900 dark:text-white">{receiptData.month || receiptData.date.toISOString().slice(0, 7)}</span>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-400">
-                Authorized receipt from {currentUser.tuitionName || "Setupclass"}
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-2">
-              <Button className="flex-1" onClick={() => window.print()}>
-                <Printer className="w-4 h-4 mr-1.5" />
-                Print
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setShowReceipt(false)}>
-                Close
-              </Button>
-            </div>
           </div>
         </div>
       )}

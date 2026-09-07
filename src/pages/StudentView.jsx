@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { startOfMonth, endOfMonth, eachDayOfInterval, format, parseISO, getDay } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, parseISO, getDay, isBefore, startOfToday } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Avatar } from '../components/ui/Avatar';
@@ -247,7 +247,7 @@ export default function StudentView() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const renderCalendar = () => {
+  const renderCalendar = (type = 'tuition') => {
     if (!selectedMonth || !stats || !stats.records) return null;
     
     try {
@@ -277,16 +277,42 @@ export default function StudentView() {
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const record = stats.records.find(r => r.date === dateStr);
+              const isPast = isBefore(day, startOfToday());
+              const dayOfWeekName = format(day, 'EEEE');
               
               let bgColor = "bg-zinc-100 dark:bg-zinc-800/50 text-zinc-400 dark:text-zinc-600";
               
               if (record) {
-                if (record.tution_present === 'Present') {
-                  bgColor = "bg-emerald-500 text-white font-bold shadow-sm shadow-emerald-500/20";
-                } else if (record.tution_present === 'Absent') {
-                  bgColor = "bg-red-500 text-white font-bold shadow-sm shadow-red-500/20";
-                } else if (record.tution_present === 'Late') {
-                  bgColor = "bg-amber-500 text-white font-bold shadow-sm shadow-amber-500/20";
+                if (type === 'tuition') {
+                  if (record.tution_present === 'Present') {
+                    bgColor = "bg-emerald-500 text-white font-bold shadow-sm shadow-emerald-500/20";
+                  } else if (record.tution_present === 'Absent') {
+                    bgColor = "bg-red-500 text-white font-bold shadow-sm shadow-red-500/20";
+                  } else if (record.tution_present === 'Late') {
+                    bgColor = "bg-amber-500 text-white font-bold shadow-sm shadow-amber-500/20";
+                  }
+                } else if (type === 'school') {
+                  if (record.School_status === 'Yes') {
+                    bgColor = "bg-emerald-500 text-white font-bold shadow-sm shadow-emerald-500/20";
+                  } else if (record.School_status === 'No') {
+                    bgColor = "bg-red-500 text-white font-bold shadow-sm shadow-red-500/20";
+                  }
+                }
+              } else if (isPast) {
+                // If it's a past day and there's no data
+                if (type === 'tuition') {
+                  // Only mark absent if it's a scheduled batch day
+                  const batch = batches.find(b => b.id === (student.batchId?._id || student.batchId) || b._id === (student.batchId?._id || student.batchId));
+                  const scheduledDays = batch?.schedule?.days || [];
+                  
+                  if (scheduledDays.includes(dayOfWeekName)) {
+                    bgColor = "bg-red-500 text-white font-bold shadow-sm shadow-red-500/20";
+                  }
+                } else if (type === 'school') {
+                  // For school, assume Monday-Saturday are school days (exclude Sunday)
+                  if (getDay(day) !== 0) {
+                    bgColor = "bg-red-500 text-white font-bold shadow-sm shadow-red-500/20";
+                  }
                 }
               }
               
@@ -298,11 +324,18 @@ export default function StudentView() {
             })}
           </div>
           
-          <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-emerald-500"></div> Present</div>
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-red-500"></div> Absent</div>
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-amber-500"></div> Late</div>
-          </div>
+          {type === 'tuition' ? (
+            <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-emerald-500"></div> Present</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-red-500"></div> Absent</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-amber-500"></div> Late</div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-emerald-500"></div> Went to School</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-red-500"></div> Did Not Go</div>
+            </div>
+          )}
         </div>
       );
     } catch (e) {
@@ -614,7 +647,7 @@ export default function StudentView() {
                         : 0}%
                     </span>
                   </div>
-                  {renderCalendar()}
+                  {renderCalendar('tuition')}
                 </CardContent>
               </Card>
             </div>
@@ -689,6 +722,7 @@ export default function StudentView() {
                   <p className="text-xs text-zinc-400 dark:text-zinc-500 pt-1">
                     * School attendance is recorded daily alongside tuition attendance during batch sessions.
                   </p>
+                  {renderCalendar('school')}
                 </CardContent>
               </Card>
             </div>

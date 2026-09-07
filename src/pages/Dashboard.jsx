@@ -152,14 +152,11 @@ export default function Dashboard() {
       };
     }
 
-    let rate =
-      batches.length > 0
-        ? batches.reduce((acc, b) => acc + (b.attendanceAvg || 0), 0) /
-          batches.length
-        : 0;
-
     const present = batches.reduce((acc, b) => acc + (b.presentCount || 0), 0);
     const absent = batches.reduce((acc, b) => acc + (b.absentCount || 0), 0);
+
+    const totalToday = present + absent;
+    const rate = totalToday > 0 ? Math.round((present / totalToday) * 100) : 0;
 
     let status = "Excellent 😎";
     if (rate >= 85) status = "Excellent 😎";

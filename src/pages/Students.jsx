@@ -58,6 +58,7 @@ export default function Students() {
     parentName: '',
     parentPhone: '',
     address: '',
+    dob: '',
     admissionDate: '',
     fees: '',
     batchId: '',
@@ -100,6 +101,7 @@ export default function Students() {
         parentName: student.parentName || '',
         parentPhone: student.parentPhone || '',
         address: student.address || '',
+        dob: student.dob ? new Date(student.dob).toISOString().split('T')[0] : '',
         admissionDate: student.admissionDate ? new Date(student.admissionDate).toISOString().split('T')[0] : '',
         fees: student.fees || '',
         batchId: student.batchId?._id || student.batchId || '',
@@ -108,7 +110,7 @@ export default function Students() {
       });
     } else {
       setEditingId(null);
-      setFormData({ name: '', phone: '', email: '', password: '', parentName: '', parentPhone: '', address: '', admissionDate: '', fees: '', batchId: '', status: 'Active', feeStatus: 'Pending' });
+      setFormData({ name: '', phone: '', email: '', password: '', parentName: '', parentPhone: '', address: '', dob: '', admissionDate: '', fees: '', batchId: '', status: 'Active', feeStatus: 'Pending' });
     }
     setIsModalOpen(true);
   };
@@ -685,6 +687,16 @@ export default function Students() {
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
+                  <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Date of Birth</label>
+                  <input 
+                    type="date" 
+                    name="dob" 
+                    value={formData.dob} 
+                    onChange={handleChange}
+                    className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+                <div className="flex-1">
                   <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Admission Date</label>
                   <input 
                     type="date" 
@@ -694,16 +706,16 @@ export default function Students() {
                     className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                   />
                 </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Address</label>
-                  <input 
-                    type="text" 
-                    name="address" 
-                    value={formData.address} 
-                    onChange={handleChange}
-                    className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
-                  />
-                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Address</label>
+                <input 
+                  type="text" 
+                  name="address" 
+                  value={formData.address} 
+                  onChange={handleChange}
+                  className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                />
               </div>
 
               <div>

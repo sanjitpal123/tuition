@@ -151,27 +151,29 @@ export default function Dashboard() {
         gaugeOffset: 120,
       };
     }
-    const withAtt = students.filter((s) => typeof s.attendance === "number");
-    const rate =
-      withAtt.length > 0
-        ? Math.round(
-            withAtt.reduce((sum, s) => sum + s.attendance, 0) / withAtt.length,
-          )
-        : students.filter((s) => s.status === "Active").length > 0
-          ? 100
-          : 0;
 
-    const present = Math.round((students.length * rate) / 100);
-    const absent = Math.max(0, students.length - present);
+    let rate =
+      batches.length > 0
+        ? batches.reduce((acc, b) => acc + (b.attendanceAvg || 0), 0) /
+          batches.length
+        : 0;
 
-    let status = "Excellent ⭐";
-    if (rate >= 85) status = "Excellent ⭐";
-    else if (rate >= 75) status = "Good 👍";
-    else if (rate > 0) status = "Needs Attention ⚠️";
+    const present = batches.reduce((acc, b) => acc + (b.presentCount || 0), 0);
+    const absent = batches.reduce((acc, b) => acc + (b.absentCount || 0), 0);
+
+    let status = "Excellent 😎";
+    if (rate >= 85) status = "Excellent 😎";
+    else if (rate >= 70) status = "Good 👍";
+    else if (rate >= 50) status = "Average 😐";
+    else if (rate > 0) status = "Poor 😕";
     else status = "Not Marked";
 
-    // Arc length is ~120
-    const offset = Math.max(0, Math.min(120, 120 - (120 * rate) / 100));
+    const offset =
+      rate === 0
+        ? 120 // Empty state (no fill)
+        : rate === 100
+          ? 0 // Full fill
+          : 120 - (120 * rate) / 100;
 
     return {
       attendanceRate: rate,
@@ -180,7 +182,7 @@ export default function Dashboard() {
       attendanceStatus: status,
       gaugeOffset: offset,
     };
-  }, [students]);
+  }, [students, batches]);
 
   const unreadNotificationsCount = (realNotifications || []).filter(
     (n) => !n.isRead,

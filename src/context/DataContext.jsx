@@ -127,7 +127,9 @@ export function DataProvider({ children }) {
           ...res.data,
           id: res.data._id,
           studentsCount: b.studentsCount,
-          attendanceAvg: b.attendanceAvg
+          attendanceAvg: b.attendanceAvg,
+          presentCount: b.presentCount,
+          absentCount: b.absentCount
         };
       }
       return b;

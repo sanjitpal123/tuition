@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
@@ -26,7 +26,12 @@ import {
   ArrowLeft,
   Sun,
   Moon,
-  Bell
+  Bell,
+  Camera,
+  Image as ImageIcon,
+  Maximize2,
+  Download,
+  UploadCloud
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -45,6 +50,10 @@ export default function Homework() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [viewingImage, setViewingImage] = useState(null);
+  const fileInputRef = useRef(null);
+
   const [formData, setFormData] = useState({
     title: '',
     subject: '',
@@ -53,6 +62,53 @@ export default function Homework() {
     description: '',
     image: null
   });
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file (PNG, JPG, JPEG, WEBP)');
+        return;
+      }
+      setFormData(prev => ({ ...prev, image: file }));
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+    }
+  };
+
+  const handleRemoveImage = (e) => {
+    if (e) e.stopPropagation();
+    setFormData(prev => ({ ...prev, image: null }));
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setFormData({
+      title: '',
+      subject: '',
+      batchId: '',
+      dueDate: '',
+      description: '',
+      image: null
+    });
+  };
 
   // Fetch homework assignments
   const fetchHomework = async () => {
@@ -127,7 +183,7 @@ export default function Homework() {
           createdAt: new Date().toISOString(),
           _id: 'hw_' + Date.now(),
           id: 'hw_' + Date.now(),
-          imageUrl: formData.image ? URL.createObjectURL(formData.image) : null
+          imageUrl: imagePreview || (formData.image ? URL.createObjectURL(formData.image) : null)
         };
       }
 
@@ -135,15 +191,7 @@ export default function Homework() {
       setHomeworkList(updated);
       localStorage.setItem('tutor_homework_cache', JSON.stringify(updated));
 
-      setIsModalOpen(false);
-      setFormData({
-        title: '',
-        subject: '',
-        batchId: '',
-        dueDate: '',
-        description: '',
-        image: null
-      });
+      handleCloseModal();
     } catch (err) {
       console.error(err);
       alert('Failed to assign homework.');
@@ -214,9 +262,9 @@ export default function Homework() {
           <div className="flex items-center space-x-3">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/dashboard', { replace: true })}
               className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-white shadow-sm active:scale-95 transition-all"
-              title="Back"
+              title="Back to Dashboard"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -404,8 +452,15 @@ export default function Homework() {
 
                 {/* Image Attachment */}
                 {item.imageUrl && (
-                  <div className="mt-2 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                    <img src={item.imageUrl} alt="Homework Attachment" className="w-full max-h-40 object-cover hover:opacity-90 transition-opacity cursor-pointer" onClick={() => window.open(item.imageUrl, '_blank')} />
+                  <div 
+                    className="mt-2 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 relative group cursor-pointer"
+                    onClick={() => setViewingImage({ url: item.imageUrl, title: item.title })}
+                  >
+                    <img src={item.imageUrl} alt="Homework Attachment" className="w-full max-h-44 object-cover group-hover:scale-105 transition-transform duration-200" />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-[2px]">
+                      <Maximize2 className="w-4 h-4" />
+                      <span>Click to view full image</span>
+                    </div>
                   </div>
                 )}
 
@@ -578,8 +633,15 @@ export default function Homework() {
 
                     {/* Image Attachment */}
                     {item.imageUrl && (
-                      <div className="mt-3 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                        <img src={item.imageUrl} alt="Homework Attachment" className="w-full h-32 object-cover hover:opacity-90 transition-opacity cursor-pointer" onClick={() => window.open(item.imageUrl, '_blank')} />
+                      <div 
+                        className="mt-3 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 relative group cursor-pointer"
+                        onClick={() => setViewingImage({ url: item.imageUrl, title: item.title })}
+                      >
+                        <img src={item.imageUrl} alt="Homework Attachment" className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-200" />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-[2px]">
+                          <Maximize2 className="w-4 h-4" />
+                          <span>Click to view full image</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -615,7 +677,7 @@ export default function Homework() {
           >
             <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-6 sm:hidden" />
             <button 
-              onClick={() => setIsModalOpen(false)} 
+              onClick={handleCloseModal} 
               className="absolute top-6 right-6 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
@@ -689,19 +751,91 @@ export default function Homework() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Attach Image (Optional)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                    Attach Photo / Worksheet (Optional)
+                  </label>
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="text-[11px] font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                </div>
+
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={e => setFormData({...formData, image: e.target.files[0]})}
-                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-zinc-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                  onChange={handleImageChange}
+                  className="hidden"
                 />
+
+                {imagePreview ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 p-2.5">
+                    <div className="relative rounded-xl overflow-hidden max-h-48 flex items-center justify-center bg-zinc-900/10 dark:bg-zinc-950/40">
+                      <img 
+                        src={imagePreview} 
+                        alt="Selected Homework Preview" 
+                        className="w-full max-h-48 object-contain rounded-lg cursor-pointer"
+                        onClick={() => setViewingImage({ url: imagePreview, title: formData.title || 'Selected Photo' })}
+                      />
+                      <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setViewingImage({ url: imagePreview, title: formData.title || 'Selected Photo' })}
+                          className="bg-black/60 hover:bg-black/80 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 backdrop-blur-md transition-all shadow-sm"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          <span>Preview</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="bg-white/90 hover:bg-white text-zinc-900 dark:bg-zinc-800/90 dark:text-white dark:hover:bg-zinc-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 backdrop-blur-md transition-all shadow-sm"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-red-500" />
+                          <span>Change</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between px-1 pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span className="truncate max-w-[200px] font-semibold text-zinc-700 dark:text-zinc-300">
+                        {formData.image?.name || 'Attached photo'}
+                      </span>
+                      <span className="font-mono">
+                        {formData.image?.size ? (formData.image.size / (1024 * 1024)).toFixed(2) + ' MB' : ''}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-zinc-200 dark:border-zinc-700 hover:border-red-500 dark:hover:border-red-500 rounded-2xl p-4 text-center cursor-pointer bg-zinc-50/60 dark:bg-zinc-800/40 hover:bg-red-50/20 dark:hover:bg-red-950/10 transition-all flex flex-col items-center justify-center gap-2 group active:scale-[0.99]"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                        Click to upload photo or take picture
+                      </p>
+                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                        PNG, JPG, JPEG, WEBP up to 10MB
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={handleCloseModal}
                   className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   Cancel
@@ -715,6 +849,69 @@ export default function Homework() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* FULL SCREEN IMAGE LIGHTBOX VIEWER */}
+      {/* ========================================================================= */}
+      {viewingImage && (
+        <div 
+          className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setViewingImage(null)}
+        >
+          {/* Top Header Bar */}
+          <div 
+            className="w-full max-w-4xl flex items-center justify-between text-white px-2 pt-2 sm:pt-0"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold truncate max-w-[220px] sm:max-w-md">
+                {viewingImage.title || 'Homework Image'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a 
+                href={viewingImage.url} 
+                download={viewingImage.title || 'homework-image'}
+                target="_blank" 
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
+                title="Open in new tab / Download"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Save / Open</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setViewingImage(null)}
+                className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Close Preview"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Center Image */}
+          <div 
+            className="relative max-w-4xl max-h-[78vh] w-full flex-1 flex items-center justify-center overflow-hidden my-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <img 
+              src={viewingImage.url} 
+              alt={viewingImage.title || 'Homework Image'} 
+              className="max-h-[75vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl border border-white/10"
+            />
+          </div>
+
+          {/* Bottom Bar Info */}
+          <div 
+            className="text-xs text-zinc-400 text-center pb-2 select-none"
+            onClick={e => e.stopPropagation()}
+          >
+            Tap anywhere outside or click Close to exit
           </div>
         </div>
       )}

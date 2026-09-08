@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { studentApi } from '../lib/api';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { BookOpen, Clock, CheckCircle2, FileText, AlertCircle } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle2, FileText, AlertCircle, Maximize2, Download, X } from 'lucide-react';
 
 export default function StudentHomework() {
   const [searchParams] = useSearchParams();
@@ -11,6 +11,7 @@ export default function StudentHomework() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewingImage, setViewingImage] = useState(null);
   
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -72,7 +73,7 @@ export default function StudentHomework() {
           homeworks.map((task) => {
             const isOverdue = new Date(task.dueDate) < new Date();
             return (
-              <Card key={task._id} className="p-0 overflow-hidden shadow-sm border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl bg-white dark:bg-zinc-900 flex flex-col md:flex-row">
+              <Card key={task._id} className="p-0 overflow-hidden shadow-sm border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl bg-white dark:zinc-900 flex flex-col md:flex-row">
                 <div className={`w-2 md:w-3 flex-shrink-0 ${isOverdue ? 'bg-red-500' : 'bg-purple-500'}`}></div>
                 <div className="p-6 flex-1 flex flex-col justify-between">
                   <div>
@@ -91,8 +92,15 @@ export default function StudentHomework() {
                       {task.description}
                     </p>
                     {task.imageUrl && (
-                      <div className="mt-4 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                        <img src={task.imageUrl} alt="Homework Attachment" className="w-full max-h-48 object-cover hover:opacity-90 transition-opacity cursor-pointer" onClick={() => window.open(task.imageUrl, '_blank')} />
+                      <div 
+                        className="mt-4 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 relative group cursor-pointer"
+                        onClick={() => setViewingImage({ url: task.imageUrl, title: task.title })}
+                      >
+                        <img src={task.imageUrl} alt="Homework Attachment" className="w-full max-h-52 object-cover group-hover:scale-105 transition-transform duration-200" />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-[2px]">
+                          <Maximize2 className="w-4 h-4" />
+                          <span>Click to view full image</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -115,6 +123,62 @@ export default function StudentHomework() {
           })
         )}
       </div>
+
+      {/* Full screen Lightbox viewer for Student */}
+      {viewingImage && (
+        <div 
+          className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setViewingImage(null)}
+        >
+          <div 
+            className="w-full max-w-4xl flex items-center justify-between text-white px-2 pt-2 sm:pt-0"
+            onClick={e => e.stopPropagation()}
+          >
+            <span className="text-sm font-bold truncate max-w-[220px] sm:max-w-md">
+              {viewingImage.title || 'Homework Image'}
+            </span>
+            <div className="flex items-center gap-2">
+              <a 
+                href={viewingImage.url} 
+                download={viewingImage.title || 'homework-image'}
+                target="_blank" 
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
+                title="Open in new tab / Download"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Save / Open</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setViewingImage(null)}
+                className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div 
+            className="relative max-w-4xl max-h-[78vh] w-full flex-1 flex items-center justify-center overflow-hidden my-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <img 
+              src={viewingImage.url} 
+              alt={viewingImage.title || 'Homework Image'} 
+              className="max-h-[75vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl border border-white/10"
+            />
+          </div>
+
+          <div 
+            className="text-xs text-zinc-400 text-center pb-2 select-none"
+            onClick={e => e.stopPropagation()}
+          >
+            Tap anywhere outside or click Close to exit
+          </div>
+        </div>
+      )}
     </div>
   );
 }

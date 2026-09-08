@@ -220,9 +220,9 @@ export default function Fees() {
           <div className="flex items-center space-x-3">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/dashboard', { replace: true })}
               className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-white shadow-sm active:scale-95 transition-all"
-              title="Back"
+              title="Back to Dashboard"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>

@@ -173,9 +173,9 @@ export default function Students() {
         <div className="flex items-center justify-between relative z-10 pt-1">
           <div className="flex items-center space-x-3 min-w-0">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/dashboard', { replace: true })}
               className="w-10 h-10 rounded-2xl bg-white dark:bg-[#121622] border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-red-500 active:scale-90 transition-all cursor-pointer flex-shrink-0"
-              title="Back"
+              title="Back to Dashboard"
             >
               <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
             </button>

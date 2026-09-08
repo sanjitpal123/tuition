@@ -19,6 +19,8 @@ import {
   User,
   ArrowLeft,
   MoreHorizontal,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { Input } from "../ui/Input";
@@ -125,6 +127,7 @@ export function DashboardLayout() {
                   <NavLink
                     key={item.name}
                     to={item.href}
+                    replace 
                     className={({ isActive }) =>
                       `group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                         isActive
@@ -288,9 +291,9 @@ export function DashboardLayout() {
               <div className="h-14 px-4 flex items-center justify-between">
                 <div className="flex items-center space-x-3 min-w-0">
                   <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => navigate('/dashboard', { replace: true })}
                     className="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80 active:scale-90 flex items-center justify-center text-white transition-all flex-shrink-0 border border-white/20 dark:border-zinc-700"
-                    title="Back"
+                    title="Back to Dashboard"
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
@@ -344,128 +347,254 @@ export function DashboardLayout() {
           </main>
         </div>
 
-        {/* Mobile menu overlay */}
+        {/* Mobile menu overlay & drawer */}
         {mobileMenuOpen && (
-          <div className="relative z-[70] md:hidden">
+          <div className="relative z-[70] md:hidden animate-in fade-in duration-200">
             <div
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70]"
+              className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[70]"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="fixed inset-0 flex z-[70]">
+            <div className="fixed inset-0 flex z-[70] pointer-events-none">
               <div 
-                className="relative mr-16 flex w-full max-w-xs flex-1 flex-col bg-gray-50 dark:bg-[#0c0f17] border-r border-zinc-200 dark:border-zinc-800 pb-4 shadow-2xl"
+                className="relative flex w-full max-w-[290px] sm:max-w-xs flex-1 flex-col bg-white dark:bg-[#0c0f17] border-r border-zinc-200/80 dark:border-zinc-800/80 shadow-2xl pointer-events-auto h-full"
                 style={{ 
-                  paddingTop: 'calc(2rem + env(safe-area-inset-top, 0px))',
-                  paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))'
+                  paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 0px))',
+                  paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))'
                 }}
               >
-                <div 
-                  className="absolute top-0 right-0 -mr-12"
-                  style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}
-                >
+                {/* 1. Header with App/Tuition Brand & Close button */}
+                <div className="px-5 pb-4 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center text-white shadow-md shadow-red-950/30 flex-shrink-0">
+                      <span className="font-extrabold text-base uppercase">
+                        {(currentUser.tuitionName || "Setupclass").charAt(0)}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-base font-heading font-extrabold text-zinc-900 dark:text-white tracking-tight truncate leading-tight">
+                        {currentUser.tuitionName || "Setupclass"}
+                      </h2>
+                      <span className="inline-flex items-center text-[10px] font-bold text-red-500 uppercase tracking-wider mt-0.5">
+                        Tutor Workspace
+                      </span>
+                    </div>
+                  </div>
+
                   <button
                     type="button"
-                    className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                     onClick={() => setMobileMenuOpen(false)}
+                    className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/80 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white active:scale-95 transition-all flex-shrink-0"
+                    title="Close menu"
                   >
-                    <span className="sr-only">Close sidebar</span>
-                    <div className="text-zinc-900 dark:text-white bg-white/10 p-2 rounded-full">
-                      <svg
-                        className="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="1.5"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </div>
+                    <X className="w-4 h-4 stroke-[2.5]" />
                   </button>
                 </div>
-                <div className="flex items-center px-6 h-16 flex-shrink-0 border-b border-black/5 dark:border-white/5">
-                  <span
-                    className="text-2xl font-bold text-red-500 tracking-tight truncate w-full"
-                    title={currentUser.tuitionName || "Setupclass"}
-                  >
-                    {currentUser.tuitionName || "Setupclass"}
-                  </span>
-                </div>
-                <div className="mt-4 h-0 flex-1 overflow-y-auto">
-                  <div className="px-4 py-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                    Tools & Navigation
+
+                {/* 2. Scrollable Navigation List */}
+                <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5">
+                  {/* Main Navigation Group */}
+                  <div>
+                    <div className="px-2.5 pb-2 text-[10px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                      <span>Main Navigation</span>
+                    </div>
+                    <nav className="space-y-1">
+                      {navigation.slice(0, 4).map((item) => (
+                        <NavLink
+                          key={item.name}
+                          to={item.href}
+                          replace
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={({ isActive }) =>
+                            `group flex items-center justify-between px-3 py-2.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98] ${
+                              isActive
+                                ? "bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 shadow-sm"
+                                : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+                            }`
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <div className="flex items-center min-w-0">
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center mr-3 transition-colors ${
+                                  isActive
+                                    ? "bg-red-600 text-white shadow-sm shadow-red-950/20"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 group-hover:bg-red-500/10 group-hover:text-red-500"
+                                }`}>
+                                  <item.icon className="w-4 h-4" />
+                                </div>
+                                <span className="truncate">{item.name}</span>
+                              </div>
+                              <ChevronRight className={`w-3.5 h-3.5 transition-transform ${
+                                isActive ? "text-red-500" : "text-zinc-300 dark:text-zinc-600 group-hover:translate-x-0.5"
+                              }`} />
+                            </>
+                          )}
+                        </NavLink>
+                      ))}
+                    </nav>
                   </div>
-                  <nav className="px-3 space-y-1">
-                    {navigation.map((item) => (
+
+                  {/* Academics & Management Group */}
+                  <div>
+                    <div className="px-2.5 pb-2 text-[10px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                      <span>Academics & Tools</span>
+                    </div>
+                    <nav className="space-y-1">
+                      {navigation.slice(4).map((item) => (
+                        <NavLink
+                          key={item.name}
+                          to={item.href}
+                          replace
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={({ isActive }) =>
+                            `group flex items-center justify-between px-3 py-2.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98] ${
+                              isActive
+                                ? "bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 shadow-sm"
+                                : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+                            }`
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <div className="flex items-center min-w-0">
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center mr-3 transition-colors ${
+                                  isActive
+                                    ? "bg-red-600 text-white shadow-sm shadow-red-950/20"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 group-hover:bg-red-500/10 group-hover:text-red-500"
+                                }`}>
+                                  <item.icon className="w-4 h-4" />
+                                </div>
+                                <span className="truncate">{item.name}</span>
+                              </div>
+                              <ChevronRight className={`w-3.5 h-3.5 transition-transform ${
+                                isActive ? "text-red-500" : "text-zinc-300 dark:text-zinc-600 group-hover:translate-x-0.5"
+                              }`} />
+                            </>
+                          )}
+                        </NavLink>
+                      ))}
+                    </nav>
+                  </div>
+
+                  {/* Preferences & Notifications */}
+                  <div>
+                    <div className="px-2.5 pb-2 text-[10px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                      <span>Account & Alerts</span>
+                    </div>
+                    <nav className="space-y-1">
                       <NavLink
-                        key={item.name}
-                        to={item.href}
+                        to="/notifications"
+                        replace
                         onClick={() => setMobileMenuOpen(false)}
                         className={({ isActive }) =>
-                          `group flex items-center px-3 py-2.5 text-base font-medium rounded-lg transition-all ${
+                          `group flex items-center justify-between px-3 py-2.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98] ${
                             isActive
-                              ? "bg-gradient-to-r from-red-500/10 to-transparent text-red-400 shadow-[inset_2px_0_0_0_rgba(239,68,68,1)]"
-                              : "text-zinc-700 dark:text-zinc-300 hover:text-red-500 hover:bg-white/5"
+                              ? "bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 shadow-sm"
+                              : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
                           }`
                         }
                       >
                         {({ isActive }) => (
                           <>
-                            <item.icon
-                              className={`flex-shrink-0 mr-4 h-5 w-5 ${
+                            <div className="flex items-center min-w-0">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center mr-3 transition-colors ${
                                 isActive
-                                  ? "text-red-500"
-                                  : "text-zinc-400 dark:text-zinc-500 group-hover:text-red-500"
-                              }`}
-                              aria-hidden="true"
-                            />
-                            {item.name}
+                                  ? "bg-red-600 text-white shadow-sm shadow-red-950/20"
+                                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 group-hover:bg-red-500/10 group-hover:text-red-500"
+                              }`}>
+                                <Bell className="w-4 h-4" />
+                              </div>
+                              <span>Notifications</span>
+                            </div>
+                            {realNotifications && realNotifications.filter(n => !n.isRead).length > 0 ? (
+                              <span className="px-2 py-0.5 text-[10px] font-extrabold text-white bg-red-600 rounded-full shadow-sm">
+                                {realNotifications.filter(n => !n.isRead).length}
+                              </span>
+                            ) : (
+                              <ChevronRight className={`w-3.5 h-3.5 transition-transform ${
+                                isActive ? "text-red-500" : "text-zinc-300 dark:text-zinc-600 group-hover:translate-x-0.5"
+                              }`} />
+                            )}
                           </>
                         )}
                       </NavLink>
-                    ))}
-                  </nav>
+
+                      <NavLink
+                        to="/settings"
+                        replace
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={({ isActive }) =>
+                          `group flex items-center justify-between px-3 py-2.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98] ${
+                            isActive
+                              ? "bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 shadow-sm"
+                              : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+                          }`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <div className="flex items-center min-w-0">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center mr-3 transition-colors ${
+                                isActive
+                                  ? "bg-red-600 text-white shadow-sm shadow-red-950/20"
+                                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 group-hover:bg-red-500/10 group-hover:text-red-500"
+                              }`}>
+                                <Settings className="w-4 h-4" />
+                              </div>
+                              <span>Settings & Profile</span>
+                            </div>
+                            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${
+                              isActive ? "text-red-500" : "text-zinc-300 dark:text-zinc-600 group-hover:translate-x-0.5"
+                            }`} />
+                          </>
+                        )}
+                      </NavLink>
+                    </nav>
+                  </div>
                 </div>
-                
-                {/* Mobile sidebar footer with Settings and Profile */}
-                <div className="flex-shrink-0 flex flex-col border-t border-black/5 dark:border-white/5 p-4 space-y-2 mt-auto">
-                  <NavLink
-                    to="/notifications"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `group flex items-center px-3 py-2.5 text-base font-medium rounded-lg transition-all ${isActive ? "bg-gradient-to-r from-red-500/10 to-transparent text-red-400 shadow-[inset_2px_0_0_0_rgba(239,68,68,1)]" : "text-zinc-700 dark:text-zinc-300 hover:text-red-500 hover:bg-white/5"}`
-                    }
-                  >
-                    <Bell className="flex-shrink-0 mr-4 h-5 w-5 text-zinc-400 dark:text-zinc-500 group-hover:text-red-500" />
-                    Notifications
-                  </NavLink>
-                  <NavLink
-                    to="/settings"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `group flex items-center px-3 py-2.5 text-base font-medium rounded-lg transition-all ${isActive ? "bg-gradient-to-r from-red-500/10 to-transparent text-red-400 shadow-[inset_2px_0_0_0_rgba(239,68,68,1)]" : "text-zinc-700 dark:text-zinc-300 hover:text-red-500 hover:bg-white/5"}`
-                    }
-                  >
-                    <Settings className="flex-shrink-0 mr-4 h-5 w-5 text-zinc-400 dark:text-zinc-500 group-hover:text-red-500" />
-                    Settings
-                  </NavLink>
-                  <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/5 flex items-center px-3">
-                    <div className="flex-shrink-0">
-                      <Avatar fallback={currentUser.name} size="sm" />
+
+                {/* 3. Bottom Teacher Profile & Quick Action Card */}
+                <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/40 flex-shrink-0">
+                  <div className="bg-white dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 rounded-2xl p-3 flex items-center justify-between shadow-sm">
+                    <div 
+                      className="flex items-center space-x-2.5 min-w-0 cursor-pointer flex-1"
+                      onClick={() => { setMobileMenuOpen(false); navigate('/settings', { replace: true }); }}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <Avatar fallback={currentUser.name} size="sm" />
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-[#101420] rounded-full" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-zinc-900 dark:text-white truncate leading-tight">
+                          {currentUser.name}
+                        </p>
+                        <span className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 block leading-tight mt-0.5">
+                          Tutor Account
+                        </span>
+                      </div>
                     </div>
-                    <div className="ml-3 truncate w-full">
-                      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
-                        {currentUser.name}
-                      </p>
-                      <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                        Tutor
-                      </p>
+
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={toggleTheme}
+                        className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 active:scale-95 transition-all"
+                        title="Toggle Theme"
+                      >
+                        {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+                        className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center active:scale-95 transition-all"
+                        title="Logout"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
@@ -483,6 +612,7 @@ export function DashboardLayout() {
             {/* 1. Dashboard Tab */}
             <NavLink
               to="/dashboard"
+              replace
               className={({ isActive }) =>
                 `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
                   isActive
@@ -510,6 +640,7 @@ export function DashboardLayout() {
             {/* 2. Students Tab */}
             <NavLink
               to="/students"
+              replace
               className={({ isActive }) =>
                 `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
                   isActive
@@ -537,6 +668,7 @@ export function DashboardLayout() {
             {/* 3. Batches Tab */}
             <NavLink
               to="/batches"
+              replace
               className={({ isActive }) =>
                 `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
                   isActive
@@ -564,6 +696,7 @@ export function DashboardLayout() {
             {/* 4. Fees Tab */}
             <NavLink
               to="/fees"
+              replace
               className={({ isActive }) =>
                 `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
                   isActive
@@ -591,6 +724,7 @@ export function DashboardLayout() {
             {/* 5. Profile Tab */}
             <NavLink
               to="/settings"
+              replace
               className={({ isActive }) =>
                 `relative flex flex-col items-center justify-center w-full h-full py-1 space-y-0.5 transition-all outline-none active:scale-95 ${
                   isActive

@@ -31,12 +31,32 @@ import api from '../lib/api';
 export default function Attendance() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { batches, students, refreshData, realNotifications } = useData();
+  const { batches, students, refreshData, realNotifications, scheduleClasses } = useData();
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const unreadNotificationsCount = realNotifications?.filter(n => !n.read)?.length || 0;
+
+  const isCurrentDateScheduled = React.useMemo(() => {
+    if (!selectedBatch || !batches) return false;
+    const batch = batches.find(b => b.id === selectedBatch);
+    if (!batch) return false;
+
+    const dayOfWeek = format(currentDate, 'EEEE');
+    const dateStr = format(currentDate, 'yyyy-MM-dd');
+    
+    // Check if it's explicitly scheduled
+    const hasExplicitClass = scheduleClasses?.some(c => 
+      (c.batchId === selectedBatch || c.batchId?._id === selectedBatch) && 
+      c.date && c.date.startsWith(dateStr)
+    );
+
+    // Or if it's a regular batch schedule day
+    const isRegularDay = batch.schedule?.days?.includes(dayOfWeek);
+
+    return hasExplicitClass || isRegularDay;
+  }, [selectedBatch, currentDate, batches, scheduleClasses]);
 
   const handleOpenViewModal = (student) => {
     navigate(`/students/${student.id}`);
@@ -363,7 +383,7 @@ export default function Attendance() {
 
         {/* 5. Student List Cards */}
         <div className="space-y-3">
-          {batchStudents.map((student, index) => {
+          {isCurrentDateScheduled && batchStudents.map((student, index) => {
             const status = attendanceState[student.id];
             const studentCode = student.studentId || student.id || student.phone;
 
@@ -535,13 +555,19 @@ export default function Attendance() {
                 Please select a class (batch) to view students and mark attendance.
               </p>
             </div>
-          ) : batchStudents.length === 0 && (
+          ) : !isCurrentDateScheduled ? (
+            <div className="text-center py-12 bg-white dark:bg-[#101420] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-6">
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                There is no class scheduled for this batch on {format(currentDate, 'MMMM d, yyyy')}.
+              </p>
+            </div>
+          ) : batchStudents.length === 0 ? (
             <div className="text-center py-12 bg-white dark:bg-[#101420] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-6">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 No students found in this batch.
               </p>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* 6. Save Attendance Button (Mobile) */}
@@ -665,7 +691,7 @@ export default function Attendance() {
         {/* Student Table / List */}
         <Card className="border border-zinc-200 dark:border-zinc-800">
           <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {batchStudents.map((student, index) => {
+            {isCurrentDateScheduled && batchStudents.map((student, index) => {
               const status = attendanceState[student.id];
               return (
                 <div key={student.id} className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-gray-50/80 dark:hover:bg-zinc-900/50 transition-colors">
@@ -763,7 +789,7 @@ export default function Attendance() {
           <Button 
             size="lg" 
             onClick={handleSave}
-            disabled={isSubmitting || totalMarked === 0}
+            disabled={!isCurrentDateScheduled || isSubmitting || totalMarked === 0}
             className="bg-red-600 hover:bg-red-500 text-white font-bold px-8 shadow-md"
           >
             {isSubmitting ? 'Saving...' : `Save Attendance (${totalMarked}/${batchStudents.length})`}

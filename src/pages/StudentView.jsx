@@ -795,7 +795,11 @@ export default function StudentView() {
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <Badge variant="success">Paid</Badge>
+                        {payment.amount < (student.fees || student.monthlyFee || 0) ? (
+                          <Badge variant="warning">Pending</Badge>
+                        ) : (
+                          <Badge variant="success">Paid</Badge>
+                        )}
                       </div>
                     </div>
                   ))}

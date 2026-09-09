@@ -42,12 +42,6 @@ export default function Attendance() {
     navigate(`/students/${student.id}`);
   };
 
-  useEffect(() => {
-    if (batches.length > 0 && !selectedBatch) {
-      setSelectedBatch(batches[0].id);
-    }
-  }, [batches, selectedBatch]);
-  
   // State for attendance form: { studentId: { tuition: 'present' | 'absent' | 'late', school: 'yes' | 'no' } }
   const [attendanceState, setAttendanceState] = useState({});
 
@@ -535,7 +529,13 @@ export default function Attendance() {
             );
           })}
 
-          {batchStudents.length === 0 && (
+          {!selectedBatch ? (
+            <div className="text-center py-12 bg-white dark:bg-[#101420] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-6">
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                Please select a class (batch) to view students and mark attendance.
+              </p>
+            </div>
+          ) : batchStudents.length === 0 && (
             <div className="text-center py-12 bg-white dark:bg-[#101420] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-6">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 No students found in this batch.

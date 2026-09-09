@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { startOfMonth, endOfMonth, eachDayOfInterval, format, parseISO, getDay, isBefore, startOfToday } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, parseISO, getDay, isBefore, startOfToday, getDaysInMonth } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Avatar } from '../components/ui/Avatar';
@@ -714,8 +714,8 @@ export default function StudentView() {
                   <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
                     <span className="text-zinc-500 dark:text-zinc-400">School Regularity Rate</span>
                     <span className="font-bold text-indigo-500">
-                      {stats.schoolYes + stats.schoolNo > 0 
-                        ? Math.round((stats.schoolYes / (stats.schoolYes + stats.schoolNo)) * 100) 
+                      {selectedMonth 
+                        ? Math.round((stats.schoolYes / getDaysInMonth(parseISO(selectedMonth + '-01'))) * 100) 
                         : 0}%
                     </span>
                   </div>

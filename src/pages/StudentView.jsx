@@ -752,14 +752,6 @@ export default function StudentView() {
                   Current Status: <span className="font-bold text-zinc-900 dark:text-white">{student.feeStatus}</span>
                 </p>
               </div>
-
-              <Button 
-                onClick={() => { setPaymentAmount(student.monthlyFee || ''); setIsPayModalOpen(true); }}
-                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-semibold"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Record Fee Payment</span>
-              </Button>
             </CardContent>
           </Card>
 

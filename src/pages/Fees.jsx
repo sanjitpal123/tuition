@@ -36,7 +36,7 @@ import { format } from 'date-fns';
 export default function Fees() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { students, feePayments, recordFeePayment, updateStudent, deleteFeePayment, realNotifications } = useData();
+  const { students, feePayments, recordFeePayment, updateStudent, deleteFeePayment, updateFeePayment, realNotifications } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,20 +71,28 @@ export default function Fees() {
   // Compute fee statuses for the selected month
   const studentStatuses = useMemo(() => {
     return students.map(s => {
-      let status = 'Pending';
-      if (selectedMonth === currentMonth) {
-        status = s.feeStatus;
-      } else {
-        const hasPaid = feePayments.some(p => {
+      const sId = s._id || s.id;
+      const monthlyFee = s.monthlyFee || s.fees || 0;
+
+      // Calculate total paid this month
+      const totalPaidThisMonth = feePayments
+        .filter(p => {
           const pStudentId = p.studentId?._id || p.studentId;
-          const sId = s._id || s.id;
           return pStudentId === sId && p.month === selectedMonth;
-        });
-        status = hasPaid ? 'Paid' : 'Pending';
-      }
-      return { ...s, computedFeeStatus: status };
+        })
+        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+
+      const remainingBalance = Math.max(0, monthlyFee - totalPaidThisMonth);
+      const computedFeeStatus = remainingBalance === 0 ? 'Paid' : 'Pending';
+
+      return { 
+        ...s, 
+        computedFeeStatus, 
+        totalPaidThisMonth, 
+        remainingBalance 
+      };
     });
-  }, [students, feePayments, selectedMonth, currentMonth]);
+  }, [students, feePayments, selectedMonth]);
 
   // Calculate dynamic stats based on selected month
   const stats = useMemo(() => {
@@ -94,11 +102,14 @@ export default function Fees() {
     let overdue = 0;
 
     studentStatuses.forEach(s => {
-      const fee = s.monthlyFee || 0;
+      const fee = s.monthlyFee || s.fees || 0;
       expected += fee;
-      if (s.computedFeeStatus === 'Paid') collected += fee;
-      else if (s.computedFeeStatus === 'Pending') pending += fee;
-      else if (s.computedFeeStatus === 'Overdue') overdue += fee;
+      collected += s.totalPaidThisMonth || 0;
+      pending += s.remainingBalance || 0;
+      
+      if (s.computedFeeStatus === 'Overdue') {
+        overdue += s.remainingBalance || 0;
+      }
     });
 
     return { expected, collected, pending, overdue };
@@ -111,7 +122,8 @@ export default function Fees() {
     (s.id && s.id.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const pendingStudents = students.filter(s => s.feeStatus !== 'Paid');
+  const pendingStudents = studentStatuses.filter(s => s.computedFeeStatus !== 'Paid');
+  const [paymentAmount, setPaymentAmount] = useState('');
 
   const getInitials = (name) => {
     if (!name) return 'ST';
@@ -136,11 +148,12 @@ export default function Fees() {
       await recordFeePayment({
         studentId: student.id,
         batchId: student.batchId?._id || student.batchId,
-        amount: student.monthlyFee || 0,
+        amount: Number(paymentAmount) || 0,
         month: selectedMonth
       });
       setIsModalOpen(false);
       setSelectedStudentId('');
+      setPaymentAmount('');
     } catch (err) {
       alert("Failed to record payment.");
     } finally {
@@ -149,7 +162,7 @@ export default function Fees() {
   };
 
   const handleMarkPaid = async (id) => {
-    const student = students.find(s => s.id === id);
+    const student = studentStatuses.find(s => s.id === id);
     if (!student) return;
     
     try {
@@ -157,7 +170,7 @@ export default function Fees() {
       await recordFeePayment({
         studentId: student.id,
         batchId: student.batchId?._id || student.batchId,
-        amount: student.monthlyFee || 0,
+        amount: student.remainingBalance || 0,
         month: selectedMonth
       });
     } catch (err) {
@@ -188,8 +201,34 @@ export default function Fees() {
 
   const handleOpenEditFee = (student) => {
     setEditingFeeStudent(student);
-    setNewFeeAmount(student.monthlyFee || 0);
+    setNewFeeAmount(student.monthlyFee || student.fees || 0);
     setIsEditFeeModalOpen(true);
+  };
+
+  const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false);
+  const [editingPaymentStudent, setEditingPaymentStudent] = useState(null);
+  const [newPaymentAmount, setNewPaymentAmount] = useState('');
+  const [isSubmittingPaymentEdit, setIsSubmittingPaymentEdit] = useState(false);
+
+  const handleOpenEditPayment = (student) => {
+    setEditingPaymentStudent(student);
+    setNewPaymentAmount(student.totalPaidThisMonth || 0);
+    setIsEditPaymentModalOpen(true);
+  };
+
+  const handleEditPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (newPaymentAmount !== null && newPaymentAmount !== "") {
+      try {
+        setIsSubmittingPaymentEdit(true);
+        await updateFeePayment(editingPaymentStudent.id, selectedMonth, Number(newPaymentAmount));
+        setIsEditPaymentModalOpen(false);
+      } catch (err) {
+        alert("Failed to update payment amount.");
+      } finally {
+        setIsSubmittingPaymentEdit(false);
+      }
+    }
   };
 
   const handleEditFeeSubmit = async (e) => {
@@ -455,22 +494,25 @@ export default function Fees() {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>Paid</span>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkPaid(student.id)}
-                        className="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                    ) : student.computedFeeStatus === 'Overdue' ? (
+                      <div
+                        className="flex-1 py-2 px-3 rounded-xl border border-red-500/30 text-red-600 dark:text-red-400 font-bold text-xs flex items-center justify-center gap-1.5"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Mark Paid</span>
-                      </button>
+                        <span>Overdue</span>
+                      </div>
+                    ) : (
+                      <div
+                        className="flex-1 py-2 px-3 rounded-xl border border-orange-500/30 text-orange-600 dark:text-orange-400 font-bold text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <span>Pending</span>
+                      </div>
                     )}
 
                     <button
                       type="button"
-                      onClick={() => handleOpenEditFee(student)}
+                      onClick={() => handleOpenEditPayment(student)}
                       className="w-10 h-8.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center active:scale-95 transition-all flex-shrink-0"
-                      title="Edit Fee Amount"
+                      title="Record/Edit Payment Amount"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -630,7 +672,21 @@ export default function Fees() {
                     <p className="text-xs text-zinc-400">{student.id.toUpperCase()}</p>
                   </TableCell>
                   <TableCell><span className="text-sm text-zinc-500 dark:text-zinc-400">{student.batchName}</span></TableCell>
-                  <TableCell><span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">₹{student.monthlyFee || 0}</span></TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        ₹{student.monthlyFee || student.fees || 0}
+                      </span>
+                      {student.totalPaidThisMonth > 0 && (
+                        <div className="text-[11px] font-medium mt-0.5 space-x-1.5">
+                          <span className="text-green-600 dark:text-green-400">Paid: ₹{student.totalPaidThisMonth}</span>
+                          {student.remainingBalance > 0 && (
+                            <span className="text-amber-600 dark:text-amber-400">Rem: ₹{student.remainingBalance}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {student.computedFeeStatus === 'Paid' ? (
                       <Badge variant="success">Paid</Badge>
@@ -642,13 +698,10 @@ export default function Fees() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">
-                      {student.computedFeeStatus !== 'Paid' && (
-                        <Button size="sm" onClick={() => handleMarkPaid(student.id)}>Mark Paid</Button>
-                      )}
-
-                      <button onClick={() => handleOpenEditFee(student)} className="text-zinc-400 hover:text-blue-500 p-1 transition-colors" title="Edit Fee Amount">
+                      <button onClick={() => handleOpenEditPayment(student)} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 transition-colors" title="Record/Edit Payment Amount">
                         <Edit2 className="w-4 h-4" />
                       </button>
+
                       {student.computedFeeStatus === 'Paid' && (
                         <button onClick={() => handleDeletePaymentClick(student.id)} className="text-zinc-400 hover:text-red-500 p-1 transition-colors" title="Delete Payment Record">
                           <Trash2 className="w-4 h-4" />
@@ -695,14 +748,31 @@ export default function Fees() {
                 <select 
                   required
                   value={selectedStudentId} 
-                  onChange={(e) => setSelectedStudentId(e.target.value)}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedStudentId(id);
+                    const s = pendingStudents.find(st => st.id === id);
+                    if (s) setPaymentAmount(s.remainingBalance || 0);
+                  }}
                   className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 >
                   <option value="" disabled>Choose pending student</option>
                   {pendingStudents.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} - {s.batchName} (₹{s.monthlyFee || 0})</option>
+                    <option key={s.id} value={s.id}>{s.name} - {s.batchName} (Remaining: ₹{s.remainingBalance || 0})</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Amount to Pay</label>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                />
               </div>
               
               <div className="pt-6 pb-4 sm:pb-0 flex gap-3">
@@ -727,6 +797,56 @@ export default function Fees() {
       )}
 
 
+
+      {/* Edit Payment Modal */}
+      {isEditPaymentModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#0a0a0a] rounded-2xl w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <div className="p-6 relative">
+              <button 
+                onClick={() => setIsEditPaymentModalOpen(false)}
+                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full p-1.5"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Edit Payment Amount</h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">Update the total amount paid by {editingPaymentStudent?.name} for this month.</p>
+              
+              <form onSubmit={handleEditPaymentSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Total Paid (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={newPaymentAmount}
+                    onChange={e => setNewPaymentAmount(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 transition-colors"
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsEditPaymentModalOpen(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1"
+                    disabled={isSubmittingPaymentEdit}
+                  >
+                    {isSubmittingPaymentEdit ? 'Saving...' : 'Save Payment'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Fee Modal */}
       {isEditFeeModalOpen && (

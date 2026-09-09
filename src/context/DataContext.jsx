@@ -175,6 +175,15 @@ export function DataProvider({ children }) {
     }
   };
 
+  const updateFeePayment = async (studentId, month, amount) => {
+    const res = await api.put(`/fees/${studentId}/${month}`, { amount });
+    // Refresh the fees list locally or simply refetch everything
+    // It's cleaner to just refresh data to ensure the sum matches 
+    // since the backend might have merged multiple fee records into one.
+    await refreshData();
+    return res.data;
+  };
+
   const value = {
     students,
     addStudent,
@@ -191,6 +200,7 @@ export function DataProvider({ children }) {
     feePayments,
     recordFeePayment,
     deleteFeePayment,
+    updateFeePayment,
     refreshData,
     isLoading,
     error,

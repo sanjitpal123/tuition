@@ -145,6 +145,16 @@ export function DataProvider({ children }) {
   const addScheduleClass = async (classData) => {
     const res = await api.post('/classes', classData);
     setScheduleClasses(prev => [...prev, { ...res.data, id: res.data._id }]);
+    return res.data;
+  };
+
+  const addBulkScheduleClasses = async (classesArray) => {
+    const res = await api.post('/classes/bulk', { classes: classesArray });
+    if (res.data?.classes) {
+      const formatted = res.data.classes.map(c => ({ ...c, id: c._id }));
+      setScheduleClasses(prev => [...prev, ...formatted]);
+    }
+    return res.data;
   };
 
   const deleteClass = async (id) => {
@@ -154,7 +164,7 @@ export function DataProvider({ children }) {
 
   const updateScheduleClass = async (id, updatedData) => {
     const res = await api.put(`/classes/${id}`, updatedData);
-    setScheduleClasses(prev => prev.map(c => c._id === id ? res.data : c));
+    setScheduleClasses(prev => prev.map(c => (c._id === id || c.id === id) ? { ...res.data, id: res.data._id } : c));
   };
 
   // Fees 
@@ -191,6 +201,7 @@ export function DataProvider({ children }) {
     deleteBatch,
     scheduleClasses,
     addScheduleClass,
+    addBulkScheduleClasses,
     updateScheduleClass,
     deleteClass,
     feePayments,

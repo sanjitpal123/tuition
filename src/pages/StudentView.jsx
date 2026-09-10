@@ -579,7 +579,7 @@ export default function StudentView() {
           {/* Detailed Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
-            {/* Personal & Academic Details */}
+            {/* Academic & Enrollment Info */}
             <Card>
               <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -590,16 +590,12 @@ export default function StudentView() {
               <CardContent className="p-4 space-y-3 text-sm">
                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
                   <span className="text-zinc-500 dark:text-zinc-400">Assigned Batch</span>
-                  <span className="font-semibold text-zinc-900 dark:text-white">{student.batchName}</span>
+                  <span className="font-semibold text-zinc-900 dark:text-white">{student.batchName || 'Unassigned'}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Monthly Fee</span>
-                  <span className="font-bold text-zinc-900 dark:text-white">₹{student.fees || student.monthlyFee || 0}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Fee Status</span>
-                  <Badge variant={billingCycle?.badgeVariant || 'default'}>
-                    {billingCycle?.status || student.feeStatus}
+                  <span className="text-zinc-500 dark:text-zinc-400">Enrollment Status</span>
+                  <Badge variant={student.status === 'Active' ? 'default' : 'secondary'}>
+                    {student.status || 'Active'}
                   </Badge>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
@@ -608,16 +604,10 @@ export default function StudentView() {
                     {billingCycle?.admissionDateFormatted || (student.admissionDate ? new Date(student.admissionDate).toLocaleDateString() : 'N/A')}
                   </span>
                 </div>
-                <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Monthly Due Day</span>
-                  <span className="font-medium text-zinc-900 dark:text-white">
-                    {billingCycle?.joinDay ? `${billingCycle.joinDay}th of every month` : '1st of month'}
-                  </span>
-                </div>
                 <div className="flex justify-between py-1.5">
-                  <span className="text-zinc-500 dark:text-zinc-400">Next Fee Due</span>
-                  <span className="font-bold text-red-600 dark:text-red-400">
-                    {billingCycle?.nextDueDateFormatted || 'N/A'}
+                  <span className="text-zinc-500 dark:text-zinc-400">Student ID / Roll</span>
+                  <span className="font-mono text-zinc-900 dark:text-white text-xs">
+                    {(student.id || student._id || '').substring(0, 10) || 'N/A'}
                   </span>
                 </div>
               </CardContent>

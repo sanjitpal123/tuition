@@ -35,7 +35,12 @@ import {
   CreditCard, 
   Award, 
   Lock, 
-  BookOpen 
+  BookOpen,
+  Copy,
+  Check,
+  Sparkles,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 
@@ -46,6 +51,7 @@ export default function Students() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState('all');
   const [showPasswordMap, setShowPasswordMap] = useState({});
+  const [copiedStudentId, setCopiedStudentId] = useState(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -74,6 +80,13 @@ export default function Students() {
 
   const togglePasswordVisibility = (studentId) => {
     setShowPasswordMap(prev => ({ ...prev, [studentId]: !prev[studentId] }));
+  };
+
+  const handleCopyCredentials = (student) => {
+    const text = `Login ID: ${student.phone || student.email || 'N/A'}\nPassword: ${student.password || '1234567'}`;
+    navigator.clipboard.writeText(text);
+    setCopiedStudentId(student.id);
+    setTimeout(() => setCopiedStudentId(null), 2000);
   };
 
   const getInitials = (name) => {
@@ -337,126 +350,164 @@ export default function Students() {
         </div>
 
         {/* 5. Student Cards List */}
-        <div className="space-y-3 pt-1">
+        <div className="space-y-3.5 pt-1">
           {filteredStudents.map((student) => {
             const cycleInfo = getStudentBillingCycle(student, feePayments);
-            return (
-            <div
-              key={student.id}
-              className="bg-white dark:bg-[#101420] rounded-[26px] p-4 sm:p-5 border border-zinc-200/80 dark:border-zinc-800/90 shadow-sm space-y-3.5 relative overflow-hidden"
-            >
-              {/* Top Row: Avatar, Name, Batch, Phone & Chevron */}
-              <div 
-                onClick={() => navigate(`/students/${student.id}`)}
-                className="flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center space-x-3 min-w-0">
-                  <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-red-600 via-rose-500 to-amber-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center font-heading font-extrabold text-white text-xs">
-                      {getInitials(student.name)}
-                    </div>
-                  </div>
+            const isCopied = copiedStudentId === student.id;
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white capitalize truncate">
+            return (
+              <div
+                key={student.id}
+                className="group relative bg-white dark:bg-[#111522] rounded-[26px] p-4.5 sm:p-5 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm hover:shadow-md transition-all duration-200 space-y-3.5 overflow-hidden"
+              >
+                {/* Top Row: Avatar, Student Info, Badges & Profile Arrow */}
+                <div 
+                  onClick={() => navigate(`/students/${student.id}`)}
+                  className="flex items-start justify-between gap-3 cursor-pointer"
+                >
+                  <div className="flex items-center space-x-3.5 min-w-0">
+                    {/* Glowing Ring Avatar */}
+                    <div className="relative flex-shrink-0">
+                      <div className="w-12 h-12 rounded-2xl p-[2px] bg-gradient-to-tr from-red-600 via-rose-500 to-amber-500 flex items-center justify-center shadow-sm">
+                        <div className="w-full h-full rounded-[14px] bg-zinc-900 flex items-center justify-center font-heading font-black text-white text-xs tracking-wider">
+                          {getInitials(student.name)}
+                        </div>
+                      </div>
+                      {student.status === 'Active' && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111522]" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <h3 className="text-base font-heading font-extrabold text-zinc-900 dark:text-white capitalize truncate tracking-tight">
                         {student.name}
                       </h3>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold border border-emerald-500/20">
-                        {student.status || 'Active'}
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
-                        cycleInfo?.status === 'Pending'
-                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                      }`}>
-                        Fee: {cycleInfo?.status === 'Extra' ? `+₹${cycleInfo.extraAmount}` : cycleInfo?.status || 'Paid'}
+
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[11px] font-bold">
+                          {student.batchName || 'General'}
+                        </span>
+
+                        {/* Fee Badge */}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-extrabold border ${
+                          cycleInfo?.status === 'Pending'
+                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                            : cycleInfo?.status === 'Extra'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                            : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                        }`}>
+                          {cycleInfo?.status === 'Pending' ? (
+                            <>
+                              <Clock className="w-3 h-3" />
+                              <span>₹{cycleInfo.remainingAmount} Due</span>
+                            </>
+                          ) : cycleInfo?.status === 'Extra' ? (
+                            <>
+                              <Sparkles className="w-3 h-3" />
+                              <span>+₹{cycleInfo.extraAmount} Extra</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Paid</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* View Arrow Icon */}
+                  <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center text-zinc-400 group-hover:text-red-500 group-hover:bg-red-50 dark:group-hover:bg-red-950/40 transition-colors flex-shrink-0 mt-0.5">
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* Quick Info Strip */}
+                <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-zinc-50 dark:bg-[#0c0f18] rounded-xl border border-zinc-200/50 dark:border-zinc-800/60 text-center">
+                  <div>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Monthly Fee</span>
+                    <span className="text-xs font-extrabold text-zinc-900 dark:text-white">₹{student.monthlyFee || student.fees || 0}</span>
+                  </div>
+                  <div className="border-x border-zinc-200/60 dark:border-zinc-800/60">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Attendance</span>
+                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{student.attendance || 100}%</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Next Due</span>
+                    <span className="text-xs font-extrabold text-red-600 dark:text-red-400 truncate block">{cycleInfo?.nextDueDateFormatted || 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* App Credentials Pass */}
+                <div className="bg-zinc-50 dark:bg-[#0a0d15] rounded-2xl p-3 border border-zinc-200/70 dark:border-zinc-800/80 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400 font-medium truncate">
+                      <Lock className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                      <span className="text-zinc-400">Login ID:</span>
+                      <span className="font-mono font-bold text-zinc-900 dark:text-white truncate">{student.phone || student.email || 'N/A'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyCredentials(student)}
+                      className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded-md transition-colors flex-shrink-0 ml-1"
+                      title="Copy Login Credentials"
+                    >
+                      {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200/40 dark:border-zinc-800/50">
+                    <div className="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400 font-medium">
+                      <Key className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                      <span className="text-zinc-400">Password:</span>
+                      <span className="font-mono font-bold text-zinc-900 dark:text-white">
+                        {showPasswordMap[student.id] ? (student.password || '1234567') : '••••••••'}
                       </span>
                     </div>
-
-                    <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                      {student.batchName || 'Batch'}
-                    </p>
-                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-zinc-400" />
-                      <span>{student.phone || student.parentPhone || 'No phone'}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500 flex-shrink-0 ml-2" />
-              </div>
-
-              {/* Middle Row: Login ID & Password Box */}
-              <div className="bg-zinc-50 dark:bg-[#0c0f17] rounded-2xl p-3 border border-zinc-200/60 dark:border-zinc-800/80 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400 font-medium">
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Login ID</span>
-                  </div>
-                  <span className="font-mono font-bold text-zinc-900 dark:text-white">
-                    {student.phone || student.email || 'N/A'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400 font-medium">
-                    <Key className="w-3.5 h-3.5" />
-                    <span>Password</span>
-                  </div>
-                  <div className="flex items-center space-x-1.5">
-                    <span className="font-mono font-bold text-zinc-900 dark:text-white">
-                      {showPasswordMap[student.id] ? (student.password || '1234567') : '••••••••'}
-                    </span>
                     <button
                       type="button"
                       onClick={() => togglePasswordVisibility(student.id)}
-                      className="text-red-500 hover:text-red-400 p-0.5 active:scale-90 transition-all cursor-pointer"
+                      className="text-zinc-400 hover:text-red-500 p-1 transition-colors flex-shrink-0"
                       title={showPasswordMap[student.id] ? "Hide Password" : "Show Password"}
                     >
-                      {showPasswordMap[student.id] ? (
-                        <EyeOff className="w-3.5 h-3.5" />
-                      ) : (
-                        <Eye className="w-3.5 h-3.5" />
-                      )}
+                      {showPasswordMap[student.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
+
+                {/* 3 Action Buttons Row */}
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/students/${student.id}`)}
+                    className="py-2.5 px-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Profile</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenModal(student)}
+                    className="py-2.5 px-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(student.id)}
+                    className="py-2.5 px-2 rounded-xl bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+
               </div>
-
-
-              {/* 3 Action Buttons Row */}
-              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/students/${student.id}`)}
-                  className="py-2 px-1 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>View Profile</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleOpenModal(student)}
-                  className="py-2 px-1 rounded-xl border border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  <span>Edit</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDelete(student.id)}
-                  className="py-2 px-1 rounded-xl border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete</span>
-                </button>
-              </div>
-
-            </div>
-          );
+            );
           })}
 
           {filteredStudents.length === 0 && (

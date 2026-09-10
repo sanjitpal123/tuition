@@ -1,13 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, getDay, addMonths, addYears, startOfMonth, endOfMonth } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './calendar.css';
 import './calendar-agenda.css';
 import { useData } from '../context/DataContext';
-import { Plus, X, Clock, Calendar as CalendarIcon, Users } from 'lucide-react';
+import { 
+  Plus, 
+  X, 
+  Clock, 
+  Calendar as CalendarIcon, 
+  Users, 
+  Edit3, 
+  Check, 
+  Repeat, 
+  Sparkles, 
+  Trash2,
+  CalendarDays,
+  CheckCircle2,
+  Layers
+} from 'lucide-react';
 
 const locales = {
   'en-US': enUS,
@@ -22,12 +36,36 @@ const localizer = dateFnsLocalizer({
 });
 
 // Calendar visible time range: 4 AM to 11 PM
-// Fixed reference date so these never go stale
-const minTime = new Date(1970, 0, 1, 3, 30, 0); // 3:30 AM — gives room so 4 AM label isn't cut off
-const maxTime = new Date(1970, 0, 1, 23, 0, 0); // 11:00 PM
-const scrollToTime = new Date(1970, 0, 1, 4, 0, 0); // scroll starts at 4:00 AM
+const minTime = new Date(1970, 0, 1, 3, 30, 0);
+const maxTime = new Date(1970, 0, 1, 23, 0, 0);
+const scrollToTime = new Date(1970, 0, 1, 4, 0, 0);
 
-// Custom toolbar: renames "Agenda" button to "Classes"
+const WEEKDAYS = [
+  { key: 'Mon', label: 'Mon', full: 'Monday' },
+  { key: 'Tue', label: 'Tue', full: 'Tuesday' },
+  { key: 'Wed', label: 'Wed', full: 'Wednesday' },
+  { key: 'Thu', label: 'Thu', full: 'Thursday' },
+  { key: 'Fri', label: 'Fri', full: 'Friday' },
+  { key: 'Sat', label: 'Sat', full: 'Saturday' },
+  { key: 'Sun', label: 'Sun', full: 'Sunday' },
+];
+
+const formatTimeToAmPm = (timeStr) => {
+  if (!timeStr) return '';
+  if (/am|pm/i.test(timeStr)) return timeStr;
+  const parts = timeStr.split(':');
+  if (parts.length >= 2) {
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${hours}:${minutes} ${ampm}`;
+  }
+  return timeStr;
+};
+
+// Custom toolbar for calendar
 function CustomToolbar({ label, onNavigate, onView, view }) {
   const views = ['month', 'week', 'day', 'agenda'];
   const viewLabels = { month: 'Month', week: 'Week', day: 'Day', agenda: 'Classes' };
@@ -46,7 +84,6 @@ function CustomToolbar({ label, onNavigate, onView, view }) {
           onChange={(e) => {
             if (e.target.value) {
               const selectedDate = new Date(e.target.value);
-              // Ensure timezone doesn't shift the day backwards by resetting hours
               selectedDate.setHours(12, 0, 0, 0); 
               if (!isNaN(selectedDate.getTime())) {
                 onNavigate('DATE', selectedDate);
@@ -75,7 +112,6 @@ function CustomToolbar({ label, onNavigate, onView, view }) {
           value={view} 
           onChange={(e) => onView(e.target.value)}
           className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm appearance-none"
-          style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e")', backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
         >
           {views.map(v => (
             <option key={v} value={v}>{viewLabels[v]} View</option>
@@ -86,116 +122,85 @@ function CustomToolbar({ label, onNavigate, onView, view }) {
   );
 }
 
-
-
-function ClassListView({ scheduleClasses, batches, deleteClass }) {
-  const [filterDate, setFilterDate] = React.useState('');
-  const [quickFilter, setQuickFilter] = React.useState('all'); // 'all' | 'today' | 'upcoming'
-
+function ClassListView({ scheduleClasses, batches, deleteClass, onEditClass }) {
+  const [filterDate, setFilterDate] = useState('');
+  const [quickFilter, setQuickFilter] = useState('all'); // 'all' | 'today' | 'upcoming'
   const todayStr = new Date().toISOString().split('T')[0];
 
   const filteredClasses = (scheduleClasses || [])
     .filter(cls => {
       if (!cls.date || !cls.subject) return false;
-      
-      const d = new Date(cls.date);
-      if (isNaN(d.getTime())) return false;
-      const clsDateStr = d.toISOString().split('T')[0];
-
-      if (filterDate) {
-        return clsDateStr === filterDate;
-      }
-
-      if (quickFilter === 'today') {
-        return clsDateStr === todayStr;
-      }
-
-      if (quickFilter === 'upcoming') {
-        return clsDateStr >= todayStr;
-      }
-
+      const classDateStr = new Date(cls.date).toISOString().split('T')[0];
+      if (filterDate && classDateStr !== filterDate) return false;
+      if (quickFilter === 'today' && classDateStr !== todayStr) return false;
+      if (quickFilter === 'upcoming' && classDateStr < todayStr) return false;
       return true;
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   return (
-    <div className="space-y-4 pb-28">
-      {/* Header and Filter Controls */}
-      <div className="space-y-3">
-        {/* Desktop Title */}
-        <div className="hidden sm:flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold font-heading text-zinc-900 dark:text-white tracking-tight">Class Schedule</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Manage and track all scheduled lecture sessions</p>
-          </div>
-          <div className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/80 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700/60">
-            {filteredClasses.length} Sessions Listed
-          </div>
+    <div className="space-y-4">
+      {/* Controls Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <button
+            type="button"
+            onClick={() => { setQuickFilter('all'); setFilterDate(''); }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              quickFilter === 'all' && !filterDate
+                ? 'bg-red-500 text-white shadow-sm'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+            }`}
+          >
+            All Classes ({scheduleClasses?.length || 0})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setQuickFilter('today'); setFilterDate(''); }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              quickFilter === 'today'
+                ? 'bg-red-500 text-white shadow-sm'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+            }`}
+          >
+            Today's Classes
+          </button>
+          <button
+            type="button"
+            onClick={() => { setQuickFilter('upcoming'); setFilterDate(''); }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              quickFilter === 'upcoming'
+                ? 'bg-red-500 text-white shadow-sm'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+            }`}
+          >
+            Upcoming
+          </button>
         </div>
-        
-        {/* Quick Filter Bar & Date Input */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-          {/* Quick Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/60 shadow-sm overflow-x-auto">
-            <button
-              onClick={() => { setQuickFilter('all'); setFilterDate(''); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                quickFilter === 'all' && !filterDate
-                  ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              All Classes
-            </button>
-            <button
-              onClick={() => { setQuickFilter('today'); setFilterDate(''); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                quickFilter === 'today' && !filterDate
-                  ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              Today's
-            </button>
-            <button
-              onClick={() => { setQuickFilter('upcoming'); setFilterDate(''); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                quickFilter === 'upcoming' && !filterDate
-                  ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              Upcoming
-            </button>
-          </div>
 
-          {/* Date Picker Filter */}
-          <div className="flex items-center justify-between gap-2 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-            <div className="flex items-center gap-2 flex-1">
-              <CalendarIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
-              <input 
-                type="date"
-                className="bg-transparent border-none text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-0 cursor-pointer w-full sm:w-auto"
-                value={filterDate}
-                onChange={(e) => {
-                  setFilterDate(e.target.value);
-                  setQuickFilter('');
-                }}
-              />
-            </div>
-            {filterDate && (
-              <button 
-                onClick={() => setFilterDate('')}
-                className="p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors"
-                title="Clear Filter"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">Filter Date:</span>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => {
+              setFilterDate(e.target.value);
+              setQuickFilter('');
+            }}
+            className="w-full sm:w-auto bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-1 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+          {filterDate && (
+            <button
+              onClick={() => setFilterDate('')}
+              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+              title="Clear Filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
-      
+
       {/* Classes Grid */}
       <div className="space-y-3 pt-1">
         {filteredClasses.length === 0 ? (
@@ -229,7 +234,7 @@ function ClassListView({ scheduleClasses, batches, deleteClass }) {
                   className="group relative overflow-hidden bg-white dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 border-l-4 border-l-red-500 shadow-sm hover:shadow-md hover:border-red-500/30 transition-all duration-200 flex flex-col justify-between"
                 >
                   <div>
-                    {/* Top Row: Subject & Delete */}
+                    {/* Top Row: Subject, Edit & Delete */}
                     <div className="flex justify-between items-start gap-2 mb-3">
                       <div className="min-w-0 flex items-center gap-2 flex-wrap">
                         <h3 className="text-lg font-bold font-heading text-zinc-900 dark:text-white tracking-tight truncate">
@@ -242,24 +247,33 @@ function ClassListView({ scheduleClasses, batches, deleteClass }) {
                         )}
                       </div>
 
-                      <button
-                        onClick={() => {
-                           if (window.confirm(`Are you sure you want to delete the class "${cls.subject}"?`)) {
-                             deleteClass(cls._id || cls.id).catch(() => alert("Failed to delete class"));
-                           }
-                        }}
-                        className="p-1.5 -mr-1 -mt-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                        title="Delete Class"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1 -mr-1 -mt-1">
+                        <button
+                          onClick={() => onEditClass(cls)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+                          title="Edit Class Time / Details"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                             if (window.confirm(`Are you sure you want to delete the class "${cls.subject}" on ${classDate.toLocaleDateString()}?`)) {
+                               deleteClass(cls._id || cls.id).catch(() => alert("Failed to delete class"));
+                             }
+                          }}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                          title="Delete Class"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     
                     {/* Date and Time Chips */}
                     <div className="flex flex-wrap items-center gap-2 mb-3.5">
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-700/40">
                         <CalendarIcon className="w-3.5 h-3.5 text-red-500" />
-                        <span>{classDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                        <span>{classDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                       
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-700/40">
@@ -292,10 +306,15 @@ function ClassListView({ scheduleClasses, batches, deleteClass }) {
 }
 
 export default function Schedule() {
-  const { scheduleClasses, batches, addScheduleClass, deleteClass } = useData();
+  const { scheduleClasses, batches, addScheduleClass, addBulkScheduleClasses, updateScheduleClass, deleteClass } = useData();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedEventModal, setSelectedEventModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [displayMode, setDisplayMode] = useState(() => {
     return searchParams.get('tab') === 'list' || searchParams.get('view') === 'list' ? 'list' : 'calendar';
   });
@@ -309,58 +328,254 @@ export default function Schedule() {
     }
   }, [searchParams]);
   
-  // Explicitly control calendar state to ensure toolbar buttons work
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState(window.innerWidth < 640 ? 'day' : 'week');
 
-  const handleSelectEvent = (event) => {
-    if (window.confirm(`Are you sure you want to delete the class "${event.title}"?`)) {
-      if (event.resource && (event.resource._id || event.resource.id)) {
-        deleteClass(event.resource._id || event.resource.id).catch(err => alert("Failed to delete class"));
-      }
-    }
-  };
-  
-  const [newClass, setNewClass] = useState({
+  // Scheduling Form State
+  const [scheduleMode, setScheduleMode] = useState('single'); // 'single' | 'month' | 'year'
+  const [formState, setFormState] = useState({
+    batchId: '',
     subject: '',
-    date: '',
-    time: '',
-    batchId: ''
+    time: '17:00', // 5:00 PM default
+    singleDate: new Date().toISOString().split('T')[0],
+    selectedMonth: format(new Date(), 'yyyy-MM'),
+    rangePreset: '3months', // '3months' | '6months' | '1year' | 'custom'
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+    selectedDays: ['Mon', 'Wed', 'Fri']
   });
 
-  const handleAddClass = async (e) => {
+  // Editing Form State for single class
+  const [editingClass, setEditingClass] = useState(null);
+
+  // Auto populate subject and schedule days when batch changes
+  const handleBatchSelect = (batchId) => {
+    const batch = batches.find(b => (b.id || b._id) === batchId);
+    let updatedDays = formState.selectedDays;
+    let updatedSubject = formState.subject;
+    let updatedTime = formState.time;
+
+    if (batch) {
+      if (batch.subject && !formState.subject) {
+        updatedSubject = batch.subject;
+      }
+      if (batch.time) {
+        // Parse time if formatted
+        const timeMatch = batch.time.match(/(\d+):(\d+)/);
+        if (timeMatch) {
+          let h = parseInt(timeMatch[1], 10);
+          const m = timeMatch[2];
+          if (/pm/i.test(batch.time) && h < 12) h += 12;
+          if (/am/i.test(batch.time) && h === 12) h = 0;
+          updatedTime = `${String(h).padStart(2, '0')}:${m}`;
+        }
+      }
+      if (batch.schedule) {
+        const matchingDays = WEEKDAYS.filter(w => 
+          batch.schedule.toLowerCase().includes(w.key.toLowerCase()) || 
+          batch.schedule.toLowerCase().includes(w.full.toLowerCase())
+        ).map(w => w.key);
+        if (matchingDays.length > 0) {
+          updatedDays = matchingDays;
+        }
+      }
+    }
+
+    setFormState(prev => ({
+      ...prev,
+      batchId,
+      subject: updatedSubject,
+      time: updatedTime,
+      selectedDays: updatedDays
+    }));
+  };
+
+  // Toggle Day Chip
+  const toggleDay = (dayKey) => {
+    setFormState(prev => {
+      const exists = prev.selectedDays.includes(dayKey);
+      const newDays = exists 
+        ? prev.selectedDays.filter(d => d !== dayKey)
+        : [...prev.selectedDays, dayKey];
+      return { ...prev, selectedDays: newDays };
+    });
+  };
+
+  // Quick Preset Selection for Range
+  const handleRangePreset = (preset) => {
+    const start = new Date(formState.startDate || new Date());
+    let end;
+    if (preset === '3months') {
+      end = addMonths(start, 3);
+    } else if (preset === '6months') {
+      end = addMonths(start, 6);
+    } else if (preset === '1year') {
+      end = addYears(start, 1);
+    }
+    setFormState(prev => ({
+      ...prev,
+      rangePreset: preset,
+      endDate: end ? format(end, 'yyyy-MM-dd') : prev.endDate
+    }));
+  };
+
+  // Calculate matching dates for preview & submission
+  const calculatedDates = useMemo(() => {
+    if (scheduleMode === 'single') {
+      return formState.singleDate ? [new Date(formState.singleDate + 'T12:00:00')] : [];
+    }
+
+    let start, end;
+    if (scheduleMode === 'month') {
+      if (!formState.selectedMonth) return [];
+      const [year, month] = formState.selectedMonth.split('-').map(Number);
+      start = new Date(year, month - 1, 1, 12, 0, 0);
+      end = endOfMonth(start);
+      end.setHours(23, 59, 59, 0);
+    } else {
+      // Year / Multi-Month Range
+      if (!formState.startDate || !formState.endDate) return [];
+      start = new Date(formState.startDate + 'T00:00:00');
+      end = new Date(formState.endDate + 'T23:59:59');
+    }
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return [];
+    if (!formState.selectedDays || formState.selectedDays.length === 0) return [];
+
+    const dayKeys = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dates = [];
+    const current = new Date(start);
+    let safetyCounter = 0;
+
+    while (current <= end && safetyCounter < 400) {
+      const dayKey = dayKeys[current.getDay()];
+      if (formState.selectedDays.includes(dayKey)) {
+        dates.push(new Date(current.getFullYear(), current.getMonth(), current.getDate(), 12, 0, 0));
+      }
+      current.setDate(current.getDate() + 1);
+      safetyCounter++;
+    }
+
+    return dates;
+  }, [scheduleMode, formState]);
+
+  // Submit Classes
+  const handleSaveClasses = async (e) => {
     e.preventDefault();
-    if (!newClass.subject || !newClass.date || !newClass.time || !newClass.batchId) {
-      alert("Please fill in all fields.");
+    if (!formState.batchId) {
+      alert("Please select a batch.");
       return;
     }
-    
+    if (!formState.subject) {
+      alert("Please specify a subject.");
+      return;
+    }
+    if (!formState.time) {
+      alert("Please specify a class time.");
+      return;
+    }
+    if (calculatedDates.length === 0) {
+      alert("No class dates match the selected schedule criteria.");
+      return;
+    }
+
     setIsSubmitting(true);
-    // Attempt to add schedule class
+    const displayTime = formatTimeToAmPm(formState.time);
+
     try {
-      await addScheduleClass({
-        ...newClass,
-        // Ensure date is a valid ISO string or standard format expected by backend
-        date: new Date(newClass.date).toISOString()
-      });
+      if (scheduleMode === 'single') {
+        await addScheduleClass({
+          batchId: formState.batchId,
+          subject: formState.subject,
+          time: displayTime,
+          date: calculatedDates[0].toISOString(),
+          status: 'Upcoming'
+        });
+        setCurrentDate(calculatedDates[0]);
+      } else {
+        const classesToInsert = calculatedDates.map(d => ({
+          batchId: formState.batchId,
+          subject: formState.subject,
+          time: displayTime,
+          date: d.toISOString(),
+          status: 'Upcoming'
+        }));
+        await addBulkScheduleClasses(classesToInsert);
+        if (calculatedDates.length > 0) {
+          setCurrentDate(calculatedDates[0]);
+        }
+      }
+
       setIsModalOpen(false);
-      setNewClass({ subject: '', date: '', time: '', batchId: '' });
-      // Navigate calendar to newly added class date
-      setCurrentDate(new Date(newClass.date));
+      // Reset form
+      setFormState({
+        batchId: '',
+        subject: '',
+        time: '17:00',
+        singleDate: new Date().toISOString().split('T')[0],
+        selectedMonth: format(new Date(), 'yyyy-MM'),
+        rangePreset: '3months',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+        selectedDays: ['Mon', 'Wed', 'Fri']
+      });
     } catch (err) {
       console.error(err);
-      alert("Failed to add class.");
+      alert("Failed to schedule classes. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Convert API classes to react-big-calendar events
+  // Open Edit Modal for a single class
+  const handleOpenEdit = (cls) => {
+    setEditingClass({
+      id: cls._id || cls.id,
+      subject: cls.subject || '',
+      date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : '',
+      time: cls.time || '',
+      batchId: typeof cls.batchId === 'object' && cls.batchId !== null ? (cls.batchId._id || cls.batchId.id) : cls.batchId,
+      status: cls.status || 'Upcoming'
+    });
+    setIsEditModalOpen(true);
+    setSelectedEventModal(null);
+  };
+
+  // Save Single Class Edit
+  const handleSaveEditClass = async (e) => {
+    e.preventDefault();
+    if (!editingClass) return;
+    try {
+      setIsSubmitting(true);
+      await updateScheduleClass(editingClass.id, {
+        subject: editingClass.subject,
+        time: formatTimeToAmPm(editingClass.time),
+        date: new Date(editingClass.date).toISOString(),
+        status: editingClass.status
+      });
+      setIsEditModalOpen(false);
+      setEditingClass(null);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update class.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Event Selection on Calendar
+  const handleSelectEvent = (event) => {
+    if (event.resource) {
+      setSelectedEventModal(event.resource);
+    }
+  };
+
+  // Calendar Events
   const events = (scheduleClasses || [])
-    .filter(cls => cls && cls.subject && cls.date) // skip invalid entries
+    .filter(cls => cls && cls.subject && cls.date)
     .map(cls => {
       const baseDate = new Date(cls.date);
-      if (isNaN(baseDate.getTime())) return null; // skip bad dates
+      if (isNaN(baseDate.getTime())) return null;
       const startDate = new Date(baseDate);
 
       let hours = 0;
@@ -392,20 +607,19 @@ export default function Schedule() {
         resource: cls
       };
     })
-    .filter(Boolean); // remove any nulls from bad dates
+    .filter(Boolean);
 
   return (
     <div className="relative pb-20 sm:pb-0">
-      {/* Header - hidden on mobile since calendar takes full screen */}
-      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center mb-3 sm:mb-6 justify-between pt-1 sm:pt-0">
         <div className="flex-auto hidden sm:block">
-          <h1 className="text-2xl sm:text-3xl font-bold leading-6 text-zinc-900 dark:text-zinc-100">Schedule</h1>
-          <p className="mt-1 sm:mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-            Manage your classes and upcoming sessions.
+          <h1 className="text-2xl sm:text-3xl font-bold leading-6 text-zinc-900 dark:text-zinc-100">Schedule & Timetable</h1>
+          <p className="mt-1 sm:mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            Schedule single classes or recurring sessions for a month or full academic year.
           </p>
         </div>
+        
         <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
           <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-full sm:w-auto border border-zinc-200 dark:border-zinc-700/60 shadow-sm">
             <button
@@ -418,7 +632,7 @@ export default function Schedule() {
               onClick={() => setDisplayMode('list')}
               className={`flex-1 sm:flex-none px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${displayMode === 'list' ? 'bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
-              Classes List
+              Classes List ({scheduleClasses?.length || 0})
             </button>
           </div>
           <button
@@ -427,7 +641,7 @@ export default function Schedule() {
             className="hidden sm:flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 active:scale-95 transition-all"
           >
             <Plus className="h-5 w-5" />
-            Add Class
+            Schedule Class
           </button>
         </div>
       </div>
@@ -443,166 +657,572 @@ export default function Schedule() {
         className="sm:hidden fixed z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all cursor-pointer"
       >
         <Plus className="h-5 w-5 stroke-[2.5]" />
-        <span>Add Class</span>
+        <span>Schedule Class</span>
       </button>
 
-
-      
+      {/* Main View: Calendar or List */}
       {displayMode === 'calendar' ? (
         <>
-          {/* Mobile: full-bleed edge-to-edge calendar */}
-      <div className="
-        sm:hidden
-        -mx-4
-        h-[calc(100vh-120px)]
-        bg-white dark:bg-zinc-900
-        text-zinc-700 dark:text-zinc-300
-        overflow-hidden
-        border-t border-zinc-200/60 dark:border-zinc-800/60
-      ">
-        <div className="h-full p-2">
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: '100%' }}
-            views={['month', 'week', 'day', 'agenda']}
-            view={currentView}
-            onView={setCurrentView}
-            date={currentDate}
-            onNavigate={setCurrentDate}
-            min={minTime}
-            max={maxTime}
-            scrollToTime={scrollToTime}
-            step={60}
-            timeslots={1}
-            popup
-            onSelectEvent={handleSelectEvent}
-          />
-        </div>
-      </div>
+          {/* Mobile Calendar */}
+          <div className="sm:hidden -mx-4 h-[calc(100vh-120px)] bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 overflow-hidden border-t border-zinc-200/60 dark:border-zinc-800/60">
+            <div className="h-full p-2">
+              <Calendar
+                localizer={localizer}
+                events={events}
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: '100%' }}
+                views={['month', 'week', 'day', 'agenda']}
+                view={currentView}
+                onView={setCurrentView}
+                date={currentDate}
+                onNavigate={setCurrentDate}
+                min={minTime}
+                max={maxTime}
+                scrollToTime={scrollToTime}
+                step={60}
+                timeslots={1}
+                popup
+                onSelectEvent={handleSelectEvent}
+              />
+            </div>
+          </div>
+
+          {/* Desktop Calendar */}
+          <div className="hidden sm:block bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-6 rounded-2xl shadow-xl h-[700px] text-zinc-700 dark:text-zinc-300 overflow-x-auto overflow-y-hidden">
+            <div className="h-full">
+              <Calendar
+                localizer={localizer}
+                events={events}
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: '100%' }}
+                views={['month', 'week', 'day', 'agenda']}
+                view={currentView}
+                onView={setCurrentView}
+                date={currentDate}
+                onNavigate={setCurrentDate}
+                components={{ toolbar: CustomToolbar }}
+                min={minTime}
+                max={maxTime}
+                scrollToTime={scrollToTime}
+                step={60}
+                timeslots={1}
+                popup
+                onSelectEvent={handleSelectEvent}
+              />
+            </div>
+          </div>
         </>
       ) : (
-        <ClassListView scheduleClasses={scheduleClasses} batches={batches} deleteClass={deleteClass} />
+        <ClassListView 
+          scheduleClasses={scheduleClasses} 
+          batches={batches} 
+          deleteClass={deleteClass} 
+          onEditClass={handleOpenEdit} 
+        />
       )}
 
-      {/* Desktop: card-style calendar */}
-      <div className="hidden sm:block bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-6 rounded-2xl shadow-xl h-[700px] text-zinc-700 dark:text-zinc-300 overflow-x-auto overflow-y-hidden">
-        <div className="h-full">
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: '100%' }}
-            views={['month', 'week', 'day', 'agenda']}
-            view={currentView}
-            onView={setCurrentView}
-            date={currentDate}
-            onNavigate={setCurrentDate}
-            components={{ toolbar: CustomToolbar }}
-            min={minTime}
-            max={maxTime}
-            scrollToTime={scrollToTime}
-            step={60}
-            timeslots={1}
-            popup
-            onSelectEvent={handleSelectEvent}
-          />
-        </div>
-      </div>
-
-      {/* Modal - Adapts to Bottom Sheet on Mobile */}
+      {/* ========================================================================= */}
+      {/* 1. SCHEDULE CLASS MODAL (SINGLE / MONTHLY / YEARLY) */}
+      {/* ========================================================================= */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
           <div 
-            className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto"
             style={{
-              paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))'
+              paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))'
             }}
           >
-            <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-6 sm:hidden" />
+            <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
+            
             <button 
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-6 right-6 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors"
+              className="absolute top-5 right-5 p-1 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">Add New Class</h2>
-            
-            <form onSubmit={handleAddClass} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Subject</label>
-                <input
-                  type="text"
-                  required
-                  value={newClass.subject}
-                  onChange={e => setNewClass({...newClass, subject: e.target.value})}
-                  className="w-full bg-white/50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
-                  placeholder="e.g. Mathematics"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={newClass.date}
-                    onChange={e => setNewClass({...newClass, date: e.target.value})}
-                    className="w-full bg-white/50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Time</label>
-                  <input
-                    type="time"
-                    required
-                    value={newClass.time}
-                    onChange={e => setNewClass({...newClass, time: e.target.value})}
-                    className="w-full bg-white/50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
-                  />
-                </div>
-              </div>
 
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
+                <CalendarDays className="w-5 h-5" />
+              </div>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Schedule Class</h2>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
+              Set single sessions or automatically schedule for a month or full year.
+            </p>
+
+            {/* Schedule Mode Switcher */}
+            <div className="grid grid-cols-3 gap-1.5 bg-zinc-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl mb-5 border border-zinc-200 dark:border-zinc-700/60">
+              <button
+                type="button"
+                onClick={() => setScheduleMode('single')}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  scheduleMode === 'single'
+                    ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                }`}
+              >
+                <span>Single Day</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setScheduleMode('month')}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  scheduleMode === 'month'
+                    ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                }`}
+              >
+                <Repeat className="w-3.5 h-3.5" />
+                <span>Per Month</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setScheduleMode('year')}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  scheduleMode === 'year'
+                    ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Per Year / Range</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveClasses} className="space-y-4">
+              
+              {/* Batch Selector */}
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Batch</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  Select Batch *
+                </label>
                 <select
                   required
-                  value={newClass.batchId}
-                  onChange={e => setNewClass({...newClass, batchId: e.target.value})}
-                  className="w-full bg-white/50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors appearance-none"
+                  value={formState.batchId}
+                  onChange={e => handleBatchSelect(e.target.value)}
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
                 >
                   <option value="">Select a batch...</option>
                   {batches.map(b => (
-                    <option key={b.id || b._id} value={b.id || b._id}>{b.name}</option>
+                    <option key={b.id || b._id} value={b.id || b._id}>
+                      {b.name} {b.class ? `(${b.class})` : ''} {b.schedule ? `— ${b.schedule}` : ''}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              <div className="pt-6 pb-safe flex gap-3">
+              {/* Subject & Time Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formState.subject}
+                    onChange={e => setFormState({...formState, subject: e.target.value})}
+                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                    placeholder="e.g. Mathematics"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    Class Time * (Changeable)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={formState.time}
+                      onChange={e => setFormState({...formState, time: e.target.value})}
+                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                      placeholder="e.g. 05:00 PM or 17:00"
+                    />
+                    <Clock className="w-4 h-4 text-zinc-400 absolute right-3.5 top-3 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Mode 1: Single Day */}
+              {scheduleMode === 'single' && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    Class Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={formState.singleDate}
+                    onChange={e => setFormState({...formState, singleDate: e.target.value})}
+                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  />
+                </div>
+              )}
+
+              {/* Mode 2: Per Month */}
+              {scheduleMode === 'month' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                      Target Month *
+                    </label>
+                    <input
+                      type="month"
+                      required
+                      value={formState.selectedMonth}
+                      onChange={e => setFormState({...formState, selectedMonth: e.target.value})}
+                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 3: Per Year / Custom Range */}
+              {scheduleMode === 'year' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                      Schedule Duration Preset
+                    </label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { id: '3months', label: '3 Mo' },
+                        { id: '6months', label: '6 Mo' },
+                        { id: '1year', label: '1 Year' },
+                        { id: 'custom', label: 'Custom' }
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleRangePreset(p.id)}
+                          className={`py-1.5 px-1 rounded-xl text-xs font-bold border transition-all ${
+                            formState.rangePreset === p.id
+                              ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800'
+                              : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                        Start Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formState.startDate}
+                        onChange={e => setFormState({...formState, startDate: e.target.value})}
+                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                        End Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formState.endDate}
+                        onChange={e => setFormState({...formState, endDate: e.target.value, rangePreset: 'custom'})}
+                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recurring Weekday Chips (For Month & Year Modes) */}
+              {(scheduleMode === 'month' || scheduleMode === 'year') && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                      Recurring Days of the Week *
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Wed', 'Fri'] }))}
+                        className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
+                      >
+                        Mon/Wed/Fri
+                      </button>
+                      <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }))}
+                        className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
+                      >
+                        Mon-Fri
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                    {WEEKDAYS.map(w => {
+                      const isSelected = formState.selectedDays.includes(w.key);
+                      return (
+                        <button
+                          key={w.key}
+                          type="button"
+                          onClick={() => toggleDay(w.key)}
+                          className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                            isSelected
+                              ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500/20'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                          }`}
+                        >
+                          {w.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Live Preview Summary Card */}
+              <div className="bg-gradient-to-br from-red-50/70 to-rose-50/40 dark:from-red-950/20 dark:to-rose-950/10 border border-red-200/80 dark:border-red-900/40 rounded-2xl p-3.5 space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Schedule Preview</span>
+                </div>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  {calculatedDates.length === 0 ? (
+                    <span className="text-zinc-400 font-normal">Select days and date range to calculate classes.</span>
+                  ) : (
+                    <span>
+                      📅 <strong className="text-red-600 dark:text-red-400 font-extrabold">{calculatedDates.length} classes</strong> will be scheduled at {formatTimeToAmPm(formState.time) || '5:00 PM'}.
+                    </span>
+                  )}
+                </p>
+                {calculatedDates.length > 0 && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    From {format(calculatedDates[0], 'dd MMM yyyy')} to {format(calculatedDates[calculatedDates.length - 1], 'dd MMM yyyy')} ({formState.selectedDays.join(', ')})
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:bg-zinc-800 transition-colors"
+                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || calculatedDates.length === 0}
+                  className="flex-1 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <span>Scheduling...</span>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>{calculatedDates.length > 1 ? `Schedule ${calculatedDates.length} Classes` : 'Save Class'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. EDIT SINGLE CLASS MODAL */}
+      {/* ========================================================================= */}
+      {isEditModalOpen && editingClass && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
+            
+            <button 
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute top-5 right-5 p-1 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <Edit3 className="w-5 h-5" />
+              </div>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Edit Scheduled Class</h2>
+            </div>
+
+            <form onSubmit={handleSaveEditClass} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingClass.subject}
+                  onChange={e => setEditingClass({...editingClass, subject: e.target.value})}
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    Class Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editingClass.date}
+                    onChange={e => setEditingClass({...editingClass, date: e.target.value})}
+                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    Class Time
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingClass.time}
+                    onChange={e => setEditingClass({...editingClass, time: e.target.value})}
+                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                    placeholder="e.g. 06:00 PM"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  Class Status
+                </label>
+                <select
+                  value={editingClass.status}
+                  onChange={e => setEditingClass({...editingClass, status: e.target.value})}
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                >
+                  <option value="Upcoming">Upcoming</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled (Holiday/Rescheduled)</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-zinc-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-500 transition-all disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save Class'}
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* 3. CALENDAR EVENT DETAILS MODAL */}
+      {/* ========================================================================= */}
+      {selectedEventModal && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
+            
+            <button 
+              onClick={() => setSelectedEventModal(null)}
+              className="absolute top-5 right-5 p-1 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
+                <CalendarIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{selectedEventModal.subject}</h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Class Session Details</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 my-4 text-sm bg-zinc-50 dark:bg-zinc-800/60 p-4 rounded-2xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="flex justify-between">
+                <span className="text-zinc-500 dark:text-zinc-400">Date</span>
+                <span className="font-semibold text-zinc-900 dark:text-white">
+                  {new Date(selectedEventModal.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500 dark:text-zinc-400">Time</span>
+                <span className="font-bold text-red-600 dark:text-red-400">{selectedEventModal.time}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500 dark:text-zinc-400">Batch</span>
+                <span className="font-semibold text-zinc-900 dark:text-white">
+                  {(typeof selectedEventModal.batchId === 'object' && selectedEventModal.batchId?.name) 
+                    ? selectedEventModal.batchId.name 
+                    : (batches.find(b => (b.id || b._id) === (selectedEventModal.batchId?._id || selectedEventModal.batchId))?.name || 'Assigned Batch')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500 dark:text-zinc-400">Status</span>
+                <span className="font-semibold text-zinc-900 dark:text-white">
+                  {selectedEventModal.status || 'Upcoming'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => handleOpenEdit(selectedEventModal)}
+                className="flex-1 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/30 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 flex items-center justify-center gap-1.5"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>Edit Time</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Delete the class "${selectedEventModal.subject}" on ${new Date(selectedEventModal.date).toLocaleDateString()}?`)) {
+                    deleteClass(selectedEventModal._id || selectedEventModal.id).catch(() => alert("Failed to delete class"));
+                    setSelectedEventModal(null);
+                  }
+                }}
+                className="flex-1 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-100 flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
-

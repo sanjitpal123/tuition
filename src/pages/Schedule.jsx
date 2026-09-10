@@ -597,7 +597,7 @@ export default function Schedule() {
 
   // Submit Classes
   const handleSaveClasses = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!formState.batchId) {
       alert("Please select a batch.");
       return;
@@ -877,73 +877,74 @@ export default function Schedule() {
       )}
 
       {/* ========================================================================= */}
-      {/* 1. SCHEDULE CLASS MODAL (CONSISTENT ORIGINAL RED THEME) */}
+      {/* 1. SCHEDULE CLASS MODAL (RESPONSIVE NATIVE MOBILE BOTTOM SHEET) */}
       {/* ========================================================================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/65 backdrop-blur-sm p-0 sm:p-4">
           <div 
-            className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-5 sm:p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto"
-            style={{
-              paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))'
-            }}
+            className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-[28px] sm:rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh] sm:max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
           >
-            <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
-            
-            <button 
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-5 right-5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors cursor-pointer"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">Schedule Classes</h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-              Schedule single lectures or recurring classes with custom time per day.
-            </p>
-
-            {/* Schedule Mode Switcher */}
-            <div className="grid grid-cols-3 gap-1.5 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-xl mb-4 border border-zinc-200 dark:border-zinc-700">
-              <button
-                type="button"
-                onClick={() => setScheduleMode('single')}
-                className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  scheduleMode === 'single'
-                    ? 'bg-red-600 text-white shadow-sm'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                <span>Single Day</span>
-              </button>
+            {/* Native Mobile Sheet Top Header */}
+            <div className="p-4 sm:p-6 pb-3 border-b border-zinc-100 dark:border-zinc-800/80 relative flex-shrink-0 bg-white dark:bg-zinc-900">
+              <div className="w-10 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-3 sm:hidden" />
               
-              <button
-                type="button"
-                onClick={() => setScheduleMode('month')}
-                className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  scheduleMode === 'month'
-                    ? 'bg-red-600 text-white shadow-sm'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                <Repeat className="w-3.5 h-3.5" />
-                <span>Per Month</span>
+                <X className="h-5 w-5" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => setScheduleMode('year')}
-                className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  scheduleMode === 'year'
-                    ? 'bg-red-600 text-white shadow-sm'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Per Year</span>
-              </button>
+              <h2 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white">Schedule Classes</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Set single sessions or schedule recurring classes with custom time per day.
+              </p>
             </div>
 
-            <form onSubmit={handleSaveClasses} className="space-y-4">
-              
+            {/* Scrollable Form Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+
+              {/* Schedule Mode Switcher */}
+              <div className="grid grid-cols-3 gap-1.5 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode('single')}
+                  className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    scheduleMode === 'single'
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span>Single Day</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode('month')}
+                  className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    scheduleMode === 'month'
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Repeat className="w-3.5 h-3.5" />
+                  <span>Per Month</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode('year')}
+                  className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    scheduleMode === 'year'
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Per Year</span>
+                </button>
+              </div>
+
               {/* Batch Selector */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
@@ -1117,7 +1118,7 @@ export default function Schedule() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1.5">
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
                       {WEEKDAYS.map(w => {
                         const isSelected = formState.selectedDays.includes(w.key);
                         return (
@@ -1125,7 +1126,7 @@ export default function Schedule() {
                             key={w.key}
                             type="button"
                             onClick={() => toggleDay(w.key)}
-                            className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            className={`h-9 sm:h-10 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
                               isSelected
                                 ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500/20'
                                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -1234,32 +1235,41 @@ export default function Schedule() {
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || calculatedClasses.length === 0}
-                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isSubmitting ? (
-                    <span>Scheduling...</span>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      <span>{calculatedClasses.length > 1 ? `Schedule ${calculatedClasses.length} Classes` : 'Save Class'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
+            </div>
 
-            </form>
+            {/* Fixed / Sticky Bottom Action Bar (App Style with Safe Area Padding) */}
+            <div 
+              className="p-3.5 sm:p-4 bg-zinc-50/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200/80 dark:border-zinc-800 flex items-center gap-2.5 flex-shrink-0"
+              style={{
+                paddingBottom: 'calc(0.875rem + env(safe-area-inset-bottom, 0px))'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="h-11 px-4 sm:px-6 rounded-xl border border-zinc-300 dark:border-zinc-700 text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveClasses}
+                disabled={isSubmitting || calculatedClasses.length === 0}
+                className="h-11 flex-1 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-xs sm:text-sm font-bold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap truncate"
+              >
+                {isSubmitting ? (
+                  <span>Scheduling...</span>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 stroke-[2.5] flex-shrink-0" />
+                    <span className="truncate">
+                      {calculatedClasses.length > 1 ? `Schedule ${calculatedClasses.length} Classes` : 'Save Class'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

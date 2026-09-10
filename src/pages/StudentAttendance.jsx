@@ -334,7 +334,7 @@ export default function StudentAttendance() {
             <div className="bg-white dark:bg-zinc-900 border border-green-500/40 p-4 sm:p-5 rounded-2xl text-center shadow-sm">
               <p className="text-[11px] sm:text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Present</p>
               <p className="text-2xl sm:text-4xl font-extrabold text-green-500 mt-1.5">
-                {monthlyStats.tuitionPresent} <span className="text-xs sm:text-sm text-zinc-400 font-normal">/ {monthlyStats.totalTuitionClasses}</span>
+                {monthlyStats.tuitionPresent + monthlyStats.tuitionLate} <span className="text-xs sm:text-sm text-zinc-400 font-normal">/ {monthlyStats.totalTuitionClasses}</span>
               </p>
             </div>
 

@@ -168,8 +168,9 @@ export default function Attendance() {
   const presentCount = Object.values(attendanceState).filter(s => s?.tuition === 'present').length;
   const absentCount = Object.values(attendanceState).filter(s => s?.tuition === 'absent').length;
   const lateCount = Object.values(attendanceState).filter(s => s?.tuition === 'late').length;
+  const totalPresentCount = presentCount + lateCount;
   const totalMarked = presentCount + absentCount + lateCount;
-  const attendancePercentage = totalMarked > 0 ? Math.round(((presentCount + lateCount) / totalMarked) * 100) : 0;
+  const attendancePercentage = totalMarked > 0 ? Math.round((totalPresentCount / totalMarked) * 100) : 0;
 
   const handlePrevDay = () => {
     const newDate = new Date(currentDate);
@@ -333,7 +334,7 @@ export default function Attendance() {
               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Present</span>
             </div>
             <div className="mt-2 text-2xl font-heading font-extrabold text-emerald-600 dark:text-emerald-400 leading-none relative z-10">
-              {presentCount}
+              {totalPresentCount}
             </div>
             <Users className="w-14 h-14 text-zinc-200/70 dark:text-zinc-800/30 absolute -right-2 -bottom-2 pointer-events-none select-none" />
           </div>
@@ -665,7 +666,7 @@ export default function Attendance() {
           <Card className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl border-t-2 border-t-green-500">
             <CardContent className="p-4 text-center">
               <p className="text-sm font-medium text-green-500 mb-1">Present</p>
-              <p className="text-3xl font-bold text-green-500">{presentCount}</p>
+              <p className="text-3xl font-bold text-green-500">{totalPresentCount}</p>
             </CardContent>
           </Card>
           <Card className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl border-t-2 border-t-red-500">

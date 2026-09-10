@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
+import { getStudentBillingCycle } from '../lib/feeCycles';
 import { 
   Search, 
   Plus, 
@@ -41,7 +42,7 @@ import { Card, CardContent } from '../components/ui/Card';
 export default function Students() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { students, addStudent, updateStudent, deleteStudent, batches, realNotifications } = useData();
+  const { students, feePayments, addStudent, updateStudent, deleteStudent, batches, realNotifications } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState('all');
   const [showPasswordMap, setShowPasswordMap] = useState({});
@@ -337,7 +338,9 @@ export default function Students() {
 
         {/* 5. Student Cards List */}
         <div className="space-y-3 pt-1">
-          {filteredStudents.map((student) => (
+          {filteredStudents.map((student) => {
+            const cycleInfo = getStudentBillingCycle(student, feePayments);
+            return (
             <div
               key={student.id}
               className="bg-white dark:bg-[#101420] rounded-[26px] p-4 sm:p-5 border border-zinc-200/80 dark:border-zinc-800/90 shadow-sm space-y-3.5 relative overflow-hidden"
@@ -361,6 +364,13 @@ export default function Students() {
                       </h3>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold border border-emerald-500/20">
                         {student.status || 'Active'}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
+                        cycleInfo?.status === 'Pending'
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                      }`}>
+                        Fee: {cycleInfo?.status === 'Extra' ? `+₹${cycleInfo.extraAmount}` : cycleInfo?.status || 'Paid'}
                       </span>
                     </div>
 
@@ -446,7 +456,8 @@ export default function Students() {
               </div>
 
             </div>
-          ))}
+          );
+          })}
 
           {filteredStudents.length === 0 && (
             <div className="text-center py-12 bg-white dark:bg-[#101420] rounded-[28px] border border-zinc-200/80 dark:border-zinc-800/80 p-6">
@@ -526,7 +537,9 @@ export default function Students() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.map((student) => (
+              {filteredStudents.map((student) => {
+                const cycleInfo = getStudentBillingCycle(student, feePayments);
+                return (
                 <TableRow key={student.id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
@@ -546,8 +559,8 @@ export default function Students() {
                     <span className="font-mono text-xs">{student.phone || 'N/A'}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={student.feeStatus === 'Paid' ? 'success' : (student.feeStatus === 'Overdue' ? 'danger' : 'warning')}>
-                      {student.feeStatus || 'Pending'}
+                    <Badge variant={cycleInfo?.badgeVariant || 'warning'}>
+                      {cycleInfo?.status === 'Extra' ? `+₹${cycleInfo.extraAmount} Extra` : (cycleInfo?.status || 'Pending')}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -567,7 +580,8 @@ export default function Students() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+              })}
             </TableBody>
           </Table>
         </Card>

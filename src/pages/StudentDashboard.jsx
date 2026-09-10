@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { studentApi } from '../lib/api';
+import { getStudentBillingCycle } from '../lib/feeCycles';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { 
@@ -118,7 +119,40 @@ export default function StudentDashboard() {
   const homeworkList = data?.homework || data?.homeworks || [];
   const announcementsList = data?.announcements || [];
   const feeHistory = data?.fees?.history || data?.feeHistory || [];
-  const monthsPaidCount = feeHistory.filter(h => h.status === 'Paid' || h.amount > 0).length;
+  
+  // Calculate billing cycle derived from student admission date
+  const billingCycle = React.useMemo(() => {
+    if (!data?.student) return null;
+    return getStudentBillingCycle(data.student, feeHistory);
+  }, [data?.student, feeHistory]);
+
+  const monthlyTuitionFee = billingCycle?.monthlyFee ?? Number(data?.student?.batch?.fee || data?.student?.fees || data?.student?.monthlyFee || 0);
+
+  // Group fee receipts by month
+  const monthlyFeeGroups = React.useMemo(() => {
+    if (!feeHistory || feeHistory.length === 0) return {};
+    const groups = {};
+    feeHistory.forEach(payment => {
+      let monthKey = payment.month;
+      if (!monthKey && payment.paymentDate) {
+        monthKey = String(payment.paymentDate).slice(0, 7);
+      } else if (!monthKey && payment.createdAt) {
+        monthKey = String(payment.createdAt).slice(0, 7);
+      }
+      monthKey = monthKey || 'Unspecified';
+      if (!groups[monthKey]) {
+        groups[monthKey] = { monthKey, totalPaid: 0 };
+      }
+      groups[monthKey].totalPaid += Number(payment.amount) || 0;
+    });
+    return groups;
+  }, [feeHistory]);
+
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const thisMonthPaid = monthlyFeeGroups[currentMonthKey]?.totalPaid || 0;
+  const thisMonthPending = monthlyTuitionFee > 0 ? Math.max(0, monthlyTuitionFee - thisMonthPaid) : 0;
+  const thisMonthExtra = monthlyTuitionFee > 0 ? Math.max(0, thisMonthPaid - monthlyTuitionFee) : 0;
+  const monthsPaidCount = Object.values(monthlyFeeGroups).filter(g => g.totalPaid >= monthlyTuitionFee && monthlyTuitionFee > 0).length;
 
   const tuitionQuery = selectedTuitionId ? `?tuitionId=${selectedTuitionId}` : '';
 
@@ -298,23 +332,27 @@ export default function StudentDashboard() {
                 <Wallet className="w-5 h-5" />
               </div>
               <Badge variant={
-                data.student?.feeStatus === 'Paid' ? 'success' :
-                data.student?.feeStatus === 'Pending' ? 'warning' : 'danger'
+                billingCycle?.status === 'Pending' ? 'warning' : 'success'
               } className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
-                {data.student?.feeStatus || 'Pending'}
+                {billingCycle?.status === 'Extra' ? `+₹${billingCycle.extraAmount} Extra` : (billingCycle?.status || 'Paid')}
               </Badge>
             </div>
             <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Monthly Fee</p>
             <div className="flex items-baseline gap-2 mt-2">
               <span className="text-3xl font-black text-zinc-900 dark:text-white">
-                {data.student?.batch?.fee ? `₹${data.student.batch.fee}` : '₹0'}
+                ₹{monthlyTuitionFee}
               </span>
+              <span className="text-xs text-zinc-400">/ mo</span>
             </div>
           </div>
 
           <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              {monthsPaidCount} {monthsPaidCount === 1 ? 'month' : 'months'} paid
+              {billingCycle?.status === 'Pending' ? (
+                <span className="text-amber-600 dark:text-amber-400 font-bold">₹{billingCycle.remainingAmount} Pending</span>
+              ) : (
+                <span>Due: {billingCycle?.nextDueDateFormatted || 'Next Month'}</span>
+              )}
             </span>
             <Link 
               to={`/student/fees${tuitionQuery}`} 

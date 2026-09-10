@@ -6,6 +6,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { getStudentBillingCycle } from '../lib/feeCycles';
 import { 
   ArrowLeft, 
   User, 
@@ -129,6 +130,78 @@ export default function StudentView() {
       const pStudentId = p.studentId?._id || p.studentId;
       return pStudentId === sId;
     }).sort((a, b) => new Date(b.createdAt || b.paymentDate || b.month) - new Date(a.createdAt || a.paymentDate || a.month));
+  }, [student, feePayments]);
+
+  const monthlyTuitionFee = Number(student?.fees || student?.monthlyFee || 0);
+
+  // Group fee payments by month and calculate totals, pending, or extra
+  const monthlyFeeGroups = React.useMemo(() => {
+    if (!studentFeeHistory || studentFeeHistory.length === 0) return [];
+    
+    const groups = {};
+    
+    studentFeeHistory.forEach(payment => {
+      let monthKey = payment.month;
+      if (!monthKey && payment.paymentDate) {
+        monthKey = String(payment.paymentDate).slice(0, 7);
+      } else if (!monthKey && payment.createdAt) {
+        monthKey = String(payment.createdAt).slice(0, 7);
+      }
+      monthKey = monthKey || 'Unspecified';
+      
+      if (!groups[monthKey]) {
+        groups[monthKey] = {
+          monthKey,
+          totalPaid: 0,
+          payments: []
+        };
+      }
+      groups[monthKey].totalPaid += Number(payment.amount) || 0;
+      groups[monthKey].payments.push(payment);
+    });
+
+    return Object.values(groups).map(group => {
+      const diff = group.totalPaid - monthlyTuitionFee;
+      let status = 'Paid';
+      let statusText = 'Paid in Full';
+      let variant = 'success';
+      let balanceAmount = 0;
+
+      if (monthlyTuitionFee > 0) {
+        if (group.totalPaid < monthlyTuitionFee) {
+          status = 'Pending';
+          balanceAmount = monthlyTuitionFee - group.totalPaid;
+          statusText = `₹${balanceAmount} Pending`;
+          variant = 'warning';
+        } else if (group.totalPaid > monthlyTuitionFee) {
+          status = 'Extra';
+          balanceAmount = group.totalPaid - monthlyTuitionFee;
+          statusText = `+₹${balanceAmount} Extra Paid`;
+          variant = 'success';
+        }
+      }
+
+      return {
+        ...group,
+        monthlyTuitionFee,
+        diff,
+        balanceAmount,
+        status,
+        statusText,
+        variant
+      };
+    }).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+  }, [studentFeeHistory, monthlyTuitionFee]);
+
+  const currentMonthKey = format(new Date(), 'yyyy-MM');
+  const currentMonthGroup = monthlyFeeGroups.find(g => g.monthKey === currentMonthKey);
+  const currentMonthPaid = currentMonthGroup ? currentMonthGroup.totalPaid : 0;
+  const currentMonthPending = monthlyTuitionFee > 0 ? Math.max(0, monthlyTuitionFee - currentMonthPaid) : 0;
+  const currentMonthExtra = monthlyTuitionFee > 0 ? Math.max(0, currentMonthPaid - monthlyTuitionFee) : 0;
+  const totalAllTimePaid = studentFeeHistory.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  const billingCycle = React.useMemo(() => {
+    return getStudentBillingCycle(student, feePayments);
   }, [student, feePayments]);
 
   if (isDataLoading) {
@@ -525,18 +598,26 @@ export default function StudentView() {
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
                   <span className="text-zinc-500 dark:text-zinc-400">Fee Status</span>
-                  <Badge variant={student.feeStatus === 'Paid' ? 'success' : student.feeStatus === 'Pending' ? 'warning' : 'danger'}>
-                    {student.feeStatus}
+                  <Badge variant={billingCycle?.badgeVariant || 'default'}>
+                    {billingCycle?.status || student.feeStatus}
                   </Badge>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
-                  <span className="text-zinc-500 dark:text-zinc-400">Total Score</span>
-                  <span className="font-semibold text-zinc-900 dark:text-white">{student.averageScore || 100}%</span>
+                  <span className="text-zinc-500 dark:text-zinc-400">Admission Date</span>
+                  <span className="font-semibold text-zinc-900 dark:text-white">
+                    {billingCycle?.admissionDateFormatted || (student.admissionDate ? new Date(student.admissionDate).toLocaleDateString() : 'N/A')}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-zinc-500 dark:text-zinc-400">Monthly Due Day</span>
+                  <span className="font-medium text-zinc-900 dark:text-white">
+                    {billingCycle?.joinDay ? `${billingCycle.joinDay}th of every month` : '1st of month'}
+                  </span>
                 </div>
                 <div className="flex justify-between py-1.5">
-                  <span className="text-zinc-500 dark:text-zinc-400">Admission Date</span>
-                  <span className="font-medium text-zinc-900 dark:text-white">
-                    {student.admissionDate ? new Date(student.admissionDate).toLocaleDateString() : 'N/A'}
+                  <span className="text-zinc-500 dark:text-zinc-400">Next Fee Due</span>
+                  <span className="font-bold text-red-600 dark:text-red-400">
+                    {billingCycle?.nextDueDateFormatted || 'N/A'}
                   </span>
                 </div>
               </CardContent>
@@ -605,7 +686,7 @@ export default function StudentView() {
                 <div className="bg-white dark:bg-zinc-900 border border-green-500/30 p-4 rounded-2xl text-center shadow-sm">
                   <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase">Present</p>
                   <p className="text-2xl sm:text-3xl font-bold text-green-500 mt-1">
-                    {stats.tuitionPresent} <span className="text-sm text-zinc-400 font-normal">/ {totalTuitionClassesThisMonth}</span>
+                    {stats.tuitionPresent + stats.tuitionLate} <span className="text-sm text-zinc-400 font-normal">/ {totalTuitionClassesThisMonth}</span>
                   </p>
                 </div>
                 <div className="bg-white dark:bg-zinc-900 border border-red-500/30 p-4 rounded-2xl text-center shadow-sm">
@@ -742,59 +823,148 @@ export default function StudentView() {
           
           {/* Fee Overview Card */}
           <Card className="bg-gradient-to-br from-red-500/5 to-rose-500/10 border-red-200 dark:border-red-900/40">
-            <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">Monthly Tuition Fee</p>
-                <h3 className="text-3xl font-heading font-extrabold text-zinc-900 dark:text-white mt-1">
-                  ₹{student.fees || student.monthlyFee || 0}
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Current Status: <span className="font-bold text-zinc-900 dark:text-white">{student.feeStatus}</span>
-                </p>
+            <CardContent className="p-4 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">Monthly Tuition Fee</p>
+                  <h3 className="text-3xl sm:text-4xl font-heading font-extrabold text-zinc-900 dark:text-white mt-1">
+                    ₹{monthlyTuitionFee}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Student Standard Fee Rate
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button 
+                    size="sm" 
+                    onClick={() => { setPaymentAmount(monthlyTuitionFee || ''); setIsPayModalOpen(true); }}
+                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-sm"
+                  >
+                    <IndianRupee className="w-4 h-4" />
+                    <span>Record Payment</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Current Month Quick Balance Summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-red-200/60 dark:border-red-900/40">
+                <div className="bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
+                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">This Month ({format(new Date(), 'MMM yyyy')}) Paid</p>
+                  <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">
+                    ₹{currentMonthPaid} <span className="text-xs text-zinc-400 font-normal">/ ₹{monthlyTuitionFee}</span>
+                  </p>
+                </div>
+
+                <div className="bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
+                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Next Due Date</p>
+                  <p className="text-base font-bold text-red-600 dark:text-red-400 mt-1">
+                    {billingCycle?.nextDueDateFormatted}
+                  </p>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">
+                    Cycle: {billingCycle?.cycleStartFormatted} - {billingCycle?.cycleEndFormatted}
+                  </p>
+                </div>
+
+                <div className="bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
+                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Total All-Time Collected</p>
+                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                    ₹{totalAllTimePaid.toLocaleString()}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Payment History List */}
+          {/* Monthly Payment Summary & Receipts Breakdown */}
           <Card>
             <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <CardTitle className="text-base flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-red-500" />
-                  Payment History
+                  Monthly Fee History & Receipts
                 </span>
                 <span className="text-xs font-normal text-zinc-500">
-                  {studentFeeHistory.length} Recorded Payments
+                  {monthlyFeeGroups.length} Month Cycles • {studentFeeHistory.length} Total Receipts
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {studentFeeHistory.length === 0 ? (
+              {monthlyFeeGroups.length === 0 ? (
                 <div className="text-center py-10 text-zinc-500 dark:text-zinc-400 text-sm">
                   No payment history found for this student.
                 </div>
               ) : (
                 <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {studentFeeHistory.map((payment) => (
-                    <div key={payment._id || payment.id} className="p-4 flex items-center justify-between gap-3 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                      <div>
-                        <p className="text-base font-bold text-zinc-900 dark:text-white">
-                          ₹{payment.amount}
-                        </p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Month: <span className="font-semibold text-zinc-700 dark:text-zinc-300">{payment.month || 'Current'}</span> • Paid on {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString()}
-                        </p>
-                      </div>
+                  {monthlyFeeGroups.map((group) => {
+                    const isExtra = group.status === 'Extra';
+                    const isPending = group.status === 'Pending';
+                    const isPaidFull = group.status === 'Paid';
 
-                      <div className="flex items-center space-x-2">
-                        {payment.amount < (student.fees || student.monthlyFee || 0) ? (
-                          <Badge variant="warning">Pending</Badge>
-                        ) : (
-                          <Badge variant="success">Paid</Badge>
-                        )}
+                    return (
+                      <div key={group.monthKey} className="p-4 space-y-2.5 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                        {/* Main Month Row with Aggregated Sum */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-base font-bold text-zinc-900 dark:text-white">
+                                Month: {group.monthKey}
+                              </span>
+                              <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                                (Tuition Fee: ₹{monthlyTuitionFee})
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                              Sum of money paid this month: <strong className="text-zinc-900 dark:text-white text-sm font-bold">₹{group.totalPaid}</strong>
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {isExtra && (
+                              <Badge variant="success" className="bg-emerald-600 dark:bg-emerald-500 text-white font-bold px-3 py-1">
+                                +₹{group.balanceAmount} Extra Paid
+                              </Badge>
+                            )}
+                            {isPending && (
+                              <Badge variant="warning" className="px-3 py-1 font-bold">
+                                ₹{group.balanceAmount} Pending
+                              </Badge>
+                            )}
+                            {isPaidFull && (
+                              <Badge variant="success" className="px-3 py-1 font-bold">
+                                Paid in Full
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Individual Installment Receipts */}
+                        <div className="bg-zinc-50 dark:bg-zinc-900/70 rounded-xl p-2.5 border border-zinc-100 dark:border-zinc-800/80 space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                            Recorded Installment Receipts ({group.payments.length})
+                          </p>
+                          <div className="space-y-1">
+                            {group.payments.map((payment, pIdx) => (
+                              <div key={payment._id || payment.id || pIdx} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-white dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/50">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-zinc-900 dark:text-white">
+                                    ₹{payment.amount}
+                                  </span>
+                                  <span className="text-zinc-400 text-[11px]">
+                                    (Installment #{group.payments.length - pIdx})
+                                  </span>
+                                </div>
+                                <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                                  Paid on: {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

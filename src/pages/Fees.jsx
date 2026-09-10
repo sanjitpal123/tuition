@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { format } from 'date-fns';
+import { getStudentBillingCycle } from '../lib/feeCycles';
 
 export default function Fees() {
   const navigate = useNavigate();
@@ -72,7 +73,8 @@ export default function Fees() {
   const studentStatuses = useMemo(() => {
     return students.map(s => {
       const sId = s._id || s.id;
-      const monthlyFee = s.monthlyFee || s.fees || 0;
+      const monthlyFee = Number(s.monthlyFee || s.fees || 0);
+      const billingCycle = getStudentBillingCycle(s, feePayments);
 
       // Calculate total paid this month
       const totalPaidThisMonth = feePayments
@@ -80,16 +82,26 @@ export default function Fees() {
           const pStudentId = p.studentId?._id || p.studentId;
           return pStudentId === sId && p.month === selectedMonth;
         })
-        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
 
       const remainingBalance = Math.max(0, monthlyFee - totalPaidThisMonth);
-      const computedFeeStatus = remainingBalance === 0 ? 'Paid' : 'Pending';
+      const extraPaid = Math.max(0, totalPaidThisMonth - monthlyFee);
+      
+      let computedFeeStatus = 'Pending';
+      if (monthlyFee > 0 && totalPaidThisMonth >= monthlyFee) {
+        computedFeeStatus = extraPaid > 0 ? 'Extra' : 'Paid';
+      } else if (totalPaidThisMonth > 0) {
+        computedFeeStatus = 'Partial';
+      }
 
       return { 
         ...s, 
+        monthlyFee,
+        billingCycle,
         computedFeeStatus, 
         totalPaidThisMonth, 
-        remainingBalance 
+        remainingBalance,
+        extraPaid
       };
     });
   }, [students, feePayments, selectedMonth]);
@@ -456,9 +468,13 @@ export default function Fees() {
                         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
                           Roll No. {rollNumber} • {student.batchName || 'General'}
                         </p>
-                        <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>{dateStr} • {timeStr}</span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 flex-wrap">
+                          <Calendar className="w-3 h-3 text-red-500" />
+                          <span>Joined: {student.billingCycle?.admissionDateFormatted || dateStr}</span>
+                          <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                          <span className="font-semibold text-zinc-600 dark:text-zinc-300">
+                            Next Due: {student.billingCycle?.nextDueDateFormatted}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -467,8 +483,9 @@ export default function Fees() {
                       <p className="text-base font-heading font-extrabold text-zinc-900 dark:text-white">
                         ₹{student.monthlyFee || 0}
                       </p>
+
                       <div className="mt-1">
-                        {student.computedFeeStatus === 'Paid' ? (
+                        {student.computedFeeStatus === 'Paid' || student.computedFeeStatus === 'Extra' ? (
                           <span className="inline-flex items-center bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
                             Paid
                           </span>
@@ -492,19 +509,32 @@ export default function Fees() {
                         className="flex-1 py-2 px-3 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Paid</span>
+                        <span>Paid (₹{student.totalPaidThisMonth}/₹{student.monthlyFee})</span>
+                      </div>
+                    ) : student.computedFeeStatus === 'Extra' ? (
+                      <div
+                        className="flex-1 py-2 px-3 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>+₹{student.extraPaid} Extra Paid (₹{student.totalPaidThisMonth}/₹{student.monthlyFee})</span>
+                      </div>
+                    ) : student.computedFeeStatus === 'Partial' ? (
+                      <div
+                        className="flex-1 py-2 px-3 rounded-xl border border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <span>₹{student.remainingBalance} Remaining (Paid: ₹{student.totalPaidThisMonth})</span>
                       </div>
                     ) : student.computedFeeStatus === 'Overdue' ? (
                       <div
                         className="flex-1 py-2 px-3 rounded-xl border border-red-500/30 text-red-600 dark:text-red-400 font-bold text-xs flex items-center justify-center gap-1.5"
                       >
-                        <span>Overdue</span>
+                        <span>Overdue (₹{student.monthlyFee})</span>
                       </div>
                     ) : (
                       <div
                         className="flex-1 py-2 px-3 rounded-xl border border-orange-500/30 text-orange-600 dark:text-orange-400 font-bold text-xs flex items-center justify-center gap-1.5"
                       >
-                        <span>Pending</span>
+                        <span>₹{student.monthlyFee} Pending</span>
                       </div>
                     )}
 
@@ -517,7 +547,7 @@ export default function Fees() {
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
 
-                    {student.computedFeeStatus === 'Paid' && (
+                    {(student.computedFeeStatus === 'Paid' || student.computedFeeStatus === 'Extra' || student.totalPaidThisMonth > 0) && (
                       <button
                         type="button"
                         onClick={() => handleDeletePaymentClick(student.id)}

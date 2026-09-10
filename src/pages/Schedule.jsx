@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay, addMonths, addYears, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parse, startOfWeek, getDay, addMonths, addYears, startOfMonth, endOfMonth, isToday, isThisWeek } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './calendar.css';
@@ -21,7 +21,10 @@ import {
   CalendarDays,
   CheckCircle2,
   Layers,
-  Sliders
+  Search,
+  BookOpen,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 
 const locales = {
@@ -66,18 +69,37 @@ const formatTimeToAmPm = (timeStr) => {
   return timeStr;
 };
 
-// Custom toolbar for calendar
+// Custom Toolbar for Calendar
 function CustomToolbar({ label, onNavigate, onView, view }) {
   const views = ['month', 'week', 'day', 'agenda'];
-  const viewLabels = { month: 'Month', week: 'Week', day: 'Day', agenda: 'Classes' };
+  const viewLabels = { month: 'Month', week: 'Week', day: 'Day', agenda: 'Agenda' };
   return (
-    <div className="rbc-toolbar">
-      <div className="rbc-btn-group">
-        <button type="button" onClick={() => onNavigate('TODAY')}>Today</button>
-        <button type="button" onClick={() => onNavigate('PREV')}>Back</button>
-        <button type="button" onClick={() => onNavigate('NEXT')}>Next</button>
+    <div className="rbc-toolbar !mb-4 !p-2 !bg-zinc-100 dark:!bg-zinc-800 !rounded-2xl !border !border-zinc-200 dark:!border-zinc-700">
+      <div className="rbc-btn-group !gap-1">
+        <button 
+          type="button" 
+          onClick={() => onNavigate('TODAY')}
+          className="!rounded-xl !px-3.5 !py-1.5 !text-xs !font-bold !bg-white dark:!bg-zinc-700 !text-zinc-800 dark:!text-white !border !border-zinc-200 dark:!border-zinc-600 hover:!bg-zinc-50 shadow-2xs"
+        >
+          Today
+        </button>
+        <button 
+          type="button" 
+          onClick={() => onNavigate('PREV')}
+          className="!rounded-xl !px-3 !py-1.5 !text-xs !font-bold !bg-white dark:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 !border !border-zinc-200 dark:!border-zinc-600 hover:!bg-zinc-50"
+        >
+          ← Back
+        </button>
+        <button 
+          type="button" 
+          onClick={() => onNavigate('NEXT')}
+          className="!rounded-xl !px-3 !py-1.5 !text-xs !font-bold !bg-white dark:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 !border !border-zinc-200 dark:!border-zinc-600 hover:!bg-zinc-50"
+        >
+          Next →
+        </button>
       </div>
-      <span className="rbc-toolbar-label relative inline-flex items-center justify-center overflow-hidden sm:cursor-default cursor-pointer">
+
+      <span className="rbc-toolbar-label !text-sm sm:!text-base !font-extrabold !text-zinc-900 dark:!text-white relative inline-flex items-center justify-center cursor-pointer px-3 py-1 rounded-xl hover:bg-white/60 dark:hover:bg-zinc-700/60 transition-colors">
         {label}
         <input 
           type="date"
@@ -93,13 +115,18 @@ function CustomToolbar({ label, onNavigate, onView, view }) {
           }}
         />
       </span>
+
       {/* Desktop View Buttons */}
-      <div className="rbc-btn-group !hidden sm:!flex">
+      <div className="rbc-btn-group !hidden sm:!flex !gap-1">
         {views.map(v => (
           <button
             key={v}
             type="button"
-            className={view === v ? 'rbc-active' : ''}
+            className={`!rounded-xl !px-3.5 !py-1.5 !text-xs !font-bold !transition-all ${
+              view === v 
+                ? '!bg-red-600 !text-white !border-transparent shadow-sm' 
+                : '!bg-white dark:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-300 !border !border-zinc-200 dark:!border-zinc-600 hover:!bg-zinc-50'
+            }`}
             onClick={() => onView(v)}
           >
             {viewLabels[v]}
@@ -108,11 +135,11 @@ function CustomToolbar({ label, onNavigate, onView, view }) {
       </div>
 
       {/* Mobile Selectable Dropdown */}
-      <div className="sm:hidden w-full" style={{ order: 3 }}>
+      <div className="sm:hidden w-full mt-2" style={{ order: 3 }}>
         <select 
           value={view} 
           onChange={(e) => onView(e.target.value)}
-          className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm appearance-none"
+          className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm appearance-none"
         >
           {views.map(v => (
             <option key={v} value={v}>{viewLabels[v]} View</option>
@@ -124,102 +151,127 @@ function CustomToolbar({ label, onNavigate, onView, view }) {
 }
 
 function ClassListView({ scheduleClasses, batches, deleteClass, onEditClass }) {
+  const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState('');
-  const [quickFilter, setQuickFilter] = useState('all'); // 'all' | 'today' | 'upcoming'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [quickFilter, setQuickFilter] = useState('all'); // 'all' | 'today' | 'thisweek' | 'upcoming'
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const filteredClasses = (scheduleClasses || [])
-    .filter(cls => {
-      if (!cls.date || !cls.subject) return false;
-      const classDateStr = new Date(cls.date).toISOString().split('T')[0];
-      if (filterDate && classDateStr !== filterDate) return false;
-      if (quickFilter === 'today' && classDateStr !== todayStr) return false;
-      if (quickFilter === 'upcoming' && classDateStr < todayStr) return false;
-      return true;
-    })
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const filteredClasses = useMemo(() => {
+    return (scheduleClasses || [])
+      .filter(cls => {
+        if (!cls.date || !cls.subject) return false;
+        const classDate = new Date(cls.date);
+        const classDateStr = classDate.toISOString().split('T')[0];
+
+        if (filterDate && classDateStr !== filterDate) return false;
+        if (quickFilter === 'today' && classDateStr !== todayStr) return false;
+        if (quickFilter === 'thisweek' && !isThisWeek(classDate, { weekStartsOn: 1 })) return false;
+        if (quickFilter === 'upcoming' && classDateStr < todayStr) return false;
+
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const batchIdStr = typeof cls.batchId === 'object' && cls.batchId !== null ? (cls.batchId._id || cls.batchId.id) : cls.batchId;
+          const batch = batches.find(b => b._id === batchIdStr || b.id === batchIdStr);
+          const batchName = (typeof cls.batchId === 'object' && cls.batchId?.name) ? cls.batchId.name : (batch ? batch.name : '');
+          const matchSub = cls.subject.toLowerCase().includes(q);
+          const matchBatch = batchName.toLowerCase().includes(q);
+          if (!matchSub && !matchBatch) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [scheduleClasses, filterDate, quickFilter, searchQuery, batches, todayStr]);
 
   return (
     <div className="space-y-4">
-      {/* Controls Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <button
-            type="button"
-            onClick={() => { setQuickFilter('all'); setFilterDate(''); }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              quickFilter === 'all' && !filterDate
-                ? 'bg-red-500 text-white shadow-sm'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
-            }`}
-          >
-            All Classes ({scheduleClasses?.length || 0})
-          </button>
-          <button
-            type="button"
-            onClick={() => { setQuickFilter('today'); setFilterDate(''); }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              quickFilter === 'today'
-                ? 'bg-red-500 text-white shadow-sm'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
-            }`}
-          >
-            Today's Classes
-          </button>
-          <button
-            type="button"
-            onClick={() => { setQuickFilter('upcoming'); setFilterDate(''); }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              quickFilter === 'upcoming'
-                ? 'bg-red-500 text-white shadow-sm'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
-            }`}
-          >
-            Upcoming
-          </button>
+      {/* Controls & Search Bar */}
+      <div className="bg-white dark:bg-zinc-900 p-3.5 sm:p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Quick Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            {[
+              { id: 'all', label: `All (${scheduleClasses?.length || 0})` },
+              { id: 'today', label: "Today's Classes" },
+              { id: 'thisweek', label: 'This Week' },
+              { id: 'upcoming', label: 'Upcoming' }
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => { setQuickFilter(f.id); setFilterDate(''); }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  quickFilter === f.id && !filterDate
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Date Filter & Search */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:w-56">
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search subject or batch..."
+                className="w-full pl-8 pr-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              />
+            </div>
+
+            <div className="relative">
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => {
+                  setFilterDate(e.target.value);
+                  setQuickFilter('');
+                }}
+                className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              />
+            </div>
+
+            {filterDate && (
+              <button
+                onClick={() => setFilterDate('')}
+                className="p-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                title="Clear date filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">Filter Date:</span>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => {
-              setFilterDate(e.target.value);
-              setQuickFilter('');
-            }}
-            className="w-full sm:w-auto bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-1 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-red-500"
-          />
-          {filterDate && (
-            <button
-              onClick={() => setFilterDate('')}
-              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-              title="Clear Filter"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Classes Grid */}
+      {/* Classes Grid Cards */}
       <div className="space-y-3 pt-1">
         {filteredClasses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white dark:bg-zinc-900/60 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800">
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 shadow-sm">
             <div className="w-14 h-14 bg-red-50 dark:bg-red-500/10 rounded-2xl flex items-center justify-center mb-3 text-red-500">
-              <CalendarIcon className="w-7 h-7" />
+              <CalendarDays className="w-7 h-7" />
             </div>
             <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-1">No classes found</h3>
             <p className="text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm max-w-sm">
               {filterDate 
                 ? "No classes scheduled for the selected date." 
+                : searchQuery
+                ? `No classes matching "${searchQuery}".`
                 : quickFilter === 'today' 
                 ? "No classes scheduled for today." 
                 : "Your class schedule is clear."}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {filteredClasses.map(cls => {
               const batchIdStr = typeof cls.batchId === 'object' && cls.batchId !== null ? (cls.batchId._id || cls.batchId.id) : cls.batchId;
               const batch = batches.find(b => b._id === batchIdStr || b.id === batchIdStr);
@@ -227,75 +279,95 @@ function ClassListView({ scheduleClasses, batches, deleteClass, onEditClass }) {
               const classGrade = batch?.class || '';
 
               const classDate = new Date(cls.date);
-              const isToday = classDate.toISOString().split('T')[0] === todayStr;
+              const isTodayDate = classDate.toISOString().split('T')[0] === todayStr;
 
               return (
                 <div 
                   key={cls._id || cls.id} 
-                  className="group relative overflow-hidden bg-white dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 border-l-4 border-l-red-500 shadow-sm hover:shadow-md hover:border-red-500/30 transition-all duration-200 flex flex-col justify-between"
+                  className={`group relative overflow-hidden bg-white dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl border transition-all duration-200 hover:shadow-md flex flex-col justify-between ${
+                    isTodayDate 
+                      ? 'border-red-500/80 dark:border-red-500/60 border-l-4 border-l-red-600 shadow-sm' 
+                      : 'border-zinc-200/80 dark:border-zinc-800 border-l-4 border-l-red-500'
+                  }`}
                 >
                   <div>
-                    {/* Top Row: Subject, Edit & Delete */}
-                    <div className="flex justify-between items-start gap-2 mb-3">
-                      <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                        <h3 className="text-lg font-bold font-heading text-zinc-900 dark:text-white tracking-tight truncate">
-                          {cls.subject}
-                        </h3>
-                        {isToday && (
-                          <span className="px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-extrabold uppercase tracking-wider animate-pulse">
-                            Today
-                          </span>
-                        )}
+                    {/* Top Row: Subject & Status / Actions */}
+                    <div className="flex justify-between items-start gap-2 mb-2.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold font-heading text-zinc-900 dark:text-white tracking-tight truncate">
+                            {cls.subject}
+                          </h3>
+                          {isTodayDate && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-extrabold uppercase tracking-wider animate-pulse">
+                              Today
+                            </span>
+                          )}
+                          {cls.status === 'Cancelled' && (
+                            <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase">
+                              Cancelled
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1 -mr-1 -mt-1">
+                      {/* Action Menu Buttons */}
+                      <div className="flex items-center gap-1 -mr-1 -mt-0.5">
                         <button
                           onClick={() => onEditClass(cls)}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
-                          title="Edit Class Time / Details"
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                          title="Edit Class Timing / Details"
                         >
-                          <Edit3 className="w-4 h-4" />
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => {
-                             if (window.confirm(`Are you sure you want to delete the class "${cls.subject}" on ${classDate.toLocaleDateString()}?`)) {
+                             if (window.confirm(`Are you sure you want to delete "${cls.subject}" on ${classDate.toLocaleDateString()}?`)) {
                                deleteClass(cls._id || cls.id).catch(() => alert("Failed to delete class"));
                              }
                           }}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                           title="Delete Class"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                     
-                    {/* Date and Time Chips */}
-                    <div className="flex flex-wrap items-center gap-2 mb-3.5">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-700/40">
-                        <CalendarIcon className="w-3.5 h-3.5 text-red-500" />
-                        <span>{classDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    {/* Date & Time Chips */}
+                    <div className="grid grid-cols-2 gap-2 mb-3.5">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50">
+                        <CalendarIcon className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                        <span className="truncate">{classDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                       </div>
                       
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-700/40">
-                        <Clock className="w-3.5 h-3.5 text-red-500" />
-                        <span>{cls.time}</span>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50">
+                        <Clock className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                        <span className="truncate">{cls.time}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Batch Identity Box */}
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-800">
-                    <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
-                      <Users className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider">Batch</span>
-                      <span className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white truncate">
+                  {/* Batch Identity Footer Bar */}
+                  <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        <Users className="w-3 h-3" />
+                      </div>
+                      <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 truncate">
                         {batchName} {classGrade ? `(${classGrade})` : ''}
                       </span>
                     </div>
+
+                    <button
+                      onClick={() => navigate('/attendance')}
+                      className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:text-red-700 flex items-center gap-0.5 hover:underline whitespace-nowrap pl-2"
+                    >
+                      <span>Attendance</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
                   </div>
+
                 </div>
               );
             })}
@@ -332,8 +404,17 @@ export default function Schedule() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState(window.innerWidth < 640 ? 'day' : 'week');
 
+  // Stats Breakdown
+  const stats = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const total = scheduleClasses?.length || 0;
+    const todayClasses = (scheduleClasses || []).filter(c => c.date && c.date.startsWith(todayStr)).length;
+    const uniqueBatches = new Set((scheduleClasses || []).map(c => typeof c.batchId === 'object' ? c.batchId?._id : c.batchId)).size;
+    return { total, todayClasses, uniqueBatches };
+  }, [scheduleClasses]);
+
   // Scheduling Form State
-  const [scheduleMode, setScheduleMode] = useState('single'); // 'single' | 'month' | 'year'
+  const [scheduleMode, setScheduleMode] = useState('year');
   const [formState, setFormState] = useState({
     batchId: '',
     subject: '',
@@ -380,7 +461,6 @@ export default function Schedule() {
           if (/am/i.test(batch.time) && h === 12) h = 0;
           const parsed = `${String(h).padStart(2, '0')}:${m}`;
           updatedDefaultTime = parsed;
-          // Apply to day times
           Object.keys(updatedDayTimes).forEach(k => {
             updatedDayTimes[k] = parsed;
           });
@@ -672,38 +752,51 @@ export default function Schedule() {
     .filter(Boolean);
 
   return (
-    <div className="relative pb-20 sm:pb-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center mb-3 sm:mb-6 justify-between pt-1 sm:pt-0">
-        <div className="flex-auto hidden sm:block">
-          <h1 className="text-2xl sm:text-3xl font-bold leading-6 text-zinc-900 dark:text-zinc-100">Schedule & Timetable</h1>
+    <div className="relative pb-24 sm:pb-8 space-y-5">
+      
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1 sm:pt-0">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold leading-6 text-zinc-900 dark:text-zinc-100">
+            Schedule
+          </h1>
           <p className="mt-1 sm:mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            Schedule single classes or recurring sessions for a month or full academic year with individual day timings.
+            Manage your classes, lectures, and upcoming sessions.
           </p>
         </div>
-        
+
+        {/* View switcher and Add Button */}
         <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
           <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-full sm:w-auto border border-zinc-200 dark:border-zinc-700/60 shadow-sm">
             <button
               onClick={() => setDisplayMode('calendar')}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${displayMode === 'calendar' ? 'bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+                displayMode === 'calendar' 
+                  ? 'bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white' 
+                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              }`}
             >
               Calendar View
             </button>
             <button
               onClick={() => setDisplayMode('list')}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${displayMode === 'list' ? 'bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+                displayMode === 'list' 
+                  ? 'bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white' 
+                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              }`}
             >
               Classes List ({scheduleClasses?.length || 0})
             </button>
           </div>
+
           <button
             type="button"
             onClick={() => setIsModalOpen(true)}
-            className="hidden sm:flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 active:scale-95 transition-all"
+            className="hidden sm:flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="h-5 w-5" />
-            Schedule Class
+            <span>Add Class</span>
           </button>
         </div>
       </div>
@@ -713,45 +806,43 @@ export default function Schedule() {
         type="button"
         onClick={() => setIsModalOpen(true)}
         style={{
-          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          bottom: 'calc(5.25rem + env(safe-area-inset-bottom, 0px))',
           right: '1.25rem'
         }}
-        className="sm:hidden fixed z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all cursor-pointer"
+        className="sm:hidden fixed z-40 flex items-center space-x-2 px-5 py-3.5 rounded-full bg-red-600 text-white shadow-xl shadow-red-950/40 font-bold text-sm active:scale-95 transition-all cursor-pointer"
       >
         <Plus className="h-5 w-5 stroke-[2.5]" />
-        <span>Schedule Class</span>
+        <span>Add Class</span>
       </button>
 
       {/* Main View: Calendar or List */}
       {displayMode === 'calendar' ? (
         <>
           {/* Mobile Calendar */}
-          <div className="sm:hidden -mx-4 h-[calc(100vh-120px)] bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 overflow-hidden border-t border-zinc-200/60 dark:border-zinc-800/60">
-            <div className="h-full p-2">
-              <Calendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                style={{ height: '100%' }}
-                views={['month', 'week', 'day', 'agenda']}
-                view={currentView}
-                onView={setCurrentView}
-                date={currentDate}
-                onNavigate={setCurrentDate}
-                min={minTime}
-                max={maxTime}
-                scrollToTime={scrollToTime}
-                step={60}
-                timeslots={1}
-                popup
-                onSelectEvent={handleSelectEvent}
-              />
-            </div>
+          <div className="sm:hidden -mx-4 h-[calc(100vh-140px)] bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 overflow-hidden border-t border-zinc-200/60 dark:border-zinc-800/60 p-2">
+            <Calendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: '100%' }}
+              views={['month', 'week', 'day', 'agenda']}
+              view={currentView}
+              onView={setCurrentView}
+              date={currentDate}
+              onNavigate={setCurrentDate}
+              min={minTime}
+              max={maxTime}
+              scrollToTime={scrollToTime}
+              step={60}
+              timeslots={1}
+              popup
+              onSelectEvent={handleSelectEvent}
+            />
           </div>
 
-          {/* Desktop Calendar */}
-          <div className="hidden sm:block bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-6 rounded-2xl shadow-xl h-[700px] text-zinc-700 dark:text-zinc-300 overflow-x-auto overflow-y-hidden">
+          {/* Desktop Calendar Card */}
+          <div className="hidden sm:block bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-6 rounded-2xl shadow-xl h-[700px] text-zinc-700 dark:text-zinc-300 overflow-hidden">
             <div className="h-full">
               <Calendar
                 localizer={localizer}
@@ -786,7 +877,7 @@ export default function Schedule() {
       )}
 
       {/* ========================================================================= */}
-      {/* 1. SCHEDULE CLASS MODAL (WITH INDIVIDUAL DAY TIMINGS) */}
+      {/* 1. SCHEDULE CLASS MODAL (CONSISTENT ORIGINAL RED THEME) */}
       {/* ========================================================================= */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
@@ -800,30 +891,25 @@ export default function Schedule() {
             
             <button 
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-5 right-5 p-1 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              className="absolute top-5 right-5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="flex items-center gap-2 mb-1">
-              <div className="p-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
-                <CalendarDays className="w-5 h-5" />
-              </div>
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Schedule Classes</h2>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
-              Set single sessions or schedule recurring classes with custom time per day.
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">Schedule Classes</h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+              Schedule single lectures or recurring classes with custom time per day.
             </p>
 
             {/* Schedule Mode Switcher */}
-            <div className="grid grid-cols-3 gap-1.5 bg-zinc-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl mb-5 border border-zinc-200 dark:border-zinc-700/60">
+            <div className="grid grid-cols-3 gap-1.5 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-xl mb-4 border border-zinc-200 dark:border-zinc-700">
               <button
                 type="button"
                 onClick={() => setScheduleMode('single')}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   scheduleMode === 'single'
-                    ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
                 <span>Single Day</span>
@@ -832,10 +918,10 @@ export default function Schedule() {
               <button
                 type="button"
                 onClick={() => setScheduleMode('month')}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   scheduleMode === 'month'
-                    ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
                 <Repeat className="w-3.5 h-3.5" />
@@ -845,14 +931,14 @@ export default function Schedule() {
               <button
                 type="button"
                 onClick={() => setScheduleMode('year')}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   scheduleMode === 'year'
-                    ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Per Year / Range</span>
+                <span>Per Year</span>
               </button>
             </div>
 
@@ -860,27 +946,30 @@ export default function Schedule() {
               
               {/* Batch Selector */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                   Select Batch *
                 </label>
-                <select
-                  required
-                  value={formState.batchId}
-                  onChange={e => handleBatchSelect(e.target.value)}
-                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                >
-                  <option value="">Select a batch...</option>
-                  {batches.map(b => (
-                    <option key={b.id || b._id} value={b.id || b._id}>
-                      {b.name} {b.class ? `(${b.class})` : ''} {b.schedule ? `— ${b.schedule}` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    required
+                    value={formState.batchId}
+                    onChange={e => handleBatchSelect(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 appearance-none cursor-pointer"
+                  >
+                    <option value="">Select a batch...</option>
+                    {batches.map(b => (
+                      <option key={b.id || b._id} value={b.id || b._id}>
+                        {b.name} {b.class ? `(${b.class})` : ''} {b.schedule ? `— ${b.schedule}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3.5 top-3 pointer-events-none" />
+                </div>
               </div>
 
               {/* Subject */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                   Subject *
                 </label>
                 <input
@@ -888,7 +977,7 @@ export default function Schedule() {
                   required
                   value={formState.subject}
                   onChange={e => setFormState({...formState, subject: e.target.value})}
-                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
                   placeholder="e.g. Mathematics"
                 />
               </div>
@@ -897,7 +986,7 @@ export default function Schedule() {
               {scheduleMode === 'single' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                       Class Date *
                     </label>
                     <input
@@ -905,23 +994,21 @@ export default function Schedule() {
                       required
                       value={formState.singleDate}
                       onChange={e => setFormState({...formState, singleDate: e.target.value})}
-                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                      className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                       Class Time *
                     </label>
-                    <div className="relative">
-                      <input
-                        type="time"
-                        required
-                        value={formState.singleTime}
-                        onChange={e => setFormState({...formState, singleTime: e.target.value})}
-                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
-                      />
-                    </div>
+                    <input
+                      type="time"
+                      required
+                      value={formState.singleTime}
+                      onChange={e => setFormState({...formState, singleTime: e.target.value})}
+                      className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                    />
                   </div>
                 </div>
               )}
@@ -929,7 +1016,7 @@ export default function Schedule() {
               {/* Mode 2: Per Month */}
               {scheduleMode === 'month' && (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                     Target Month *
                   </label>
                   <input
@@ -937,7 +1024,7 @@ export default function Schedule() {
                     required
                     value={formState.selectedMonth}
                     onChange={e => setFormState({...formState, selectedMonth: e.target.value})}
-                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                   />
                 </div>
               )}
@@ -946,13 +1033,13 @@ export default function Schedule() {
               {scheduleMode === 'year' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                       Schedule Duration Preset
                     </label>
                     <div className="grid grid-cols-4 gap-1.5">
                       {[
-                        { id: '3months', label: '3 Mo' },
-                        { id: '6months', label: '6 Mo' },
+                        { id: '3months', label: '3 Months' },
+                        { id: '6months', label: '6 Months' },
                         { id: '1year', label: '1 Year' },
                         { id: 'custom', label: 'Custom' }
                       ].map(p => (
@@ -960,9 +1047,9 @@ export default function Schedule() {
                           key={p.id}
                           type="button"
                           onClick={() => handleRangePreset(p.id)}
-                          className={`py-1.5 px-1 rounded-xl text-xs font-bold border transition-all ${
+                          className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                             formState.rangePreset === p.id
-                              ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800'
+                              ? 'bg-red-600 text-white border-red-600 shadow-sm'
                               : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                           }`}
                         >
@@ -974,7 +1061,7 @@ export default function Schedule() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                         Start Date *
                       </label>
                       <input
@@ -982,11 +1069,11 @@ export default function Schedule() {
                         required
                         value={formState.startDate}
                         onChange={e => setFormState({...formState, startDate: e.target.value})}
-                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1">
                         End Date *
                       </label>
                       <input
@@ -994,18 +1081,18 @@ export default function Schedule() {
                         required
                         value={formState.endDate}
                         onChange={e => setFormState({...formState, endDate: e.target.value, rangePreset: 'custom'})}
-                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Recurring Weekday Selection & Per-Day Time Config (For Month & Year Modes) */}
+              {/* Recurring Weekday Selection & Per-Day Time Config */}
               {(scheduleMode === 'month' || scheduleMode === 'year') && (
                 <div className="space-y-3 pt-1">
                   
-                  {/* Day Chips */}
+                  {/* 1. Day Selector Chips */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
@@ -1015,7 +1102,7 @@ export default function Schedule() {
                         <button
                           type="button"
                           onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Wed', 'Fri'] }))}
-                          className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
+                          className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer"
                         >
                           Mon/Wed/Fri
                         </button>
@@ -1023,14 +1110,14 @@ export default function Schedule() {
                         <button
                           type="button"
                           onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }))}
-                          className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
+                          className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer"
                         >
                           Mon-Fri
                         </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                    <div className="grid grid-cols-7 gap-1.5">
                       {WEEKDAYS.map(w => {
                         const isSelected = formState.selectedDays.includes(w.key);
                         return (
@@ -1038,7 +1125,7 @@ export default function Schedule() {
                             key={w.key}
                             type="button"
                             onClick={() => toggleDay(w.key)}
-                            className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                            className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                               isSelected
                                 ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500/20'
                                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -1051,16 +1138,16 @@ export default function Schedule() {
                     </div>
                   </div>
 
-                  {/* 2. Individual Day Timings Card */}
+                  {/* 2. Individual Day Timings Panel */}
                   {formState.selectedDays.length > 0 && (
-                    <div className="bg-zinc-50 dark:bg-zinc-800/40 p-3.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 space-y-2.5">
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
                           <Clock className="w-3.5 h-3.5 text-red-500" />
                           <span>2. Set Timings For Each Day</span>
                         </div>
                         <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                          (e.g. Mon 5 PM, Sun 3 PM)
+                          (Customizable per day)
                         </span>
                       </div>
 
@@ -1072,10 +1159,10 @@ export default function Schedule() {
                           return (
                             <div 
                               key={dayKey} 
-                              className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/70 dark:border-zinc-800 shadow-2xs"
+                              className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-2xs"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-6 h-6 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                                <span className="w-6 h-6 rounded-lg bg-red-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                                   {dayKey[0]}
                                 </span>
                                 <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate">
@@ -1094,7 +1181,7 @@ export default function Schedule() {
                                   type="button"
                                   onClick={() => handleApplyTimeToAll(dayKey)}
                                   title="Apply this time to all selected days"
-                                  className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[10px] font-semibold"
+                                  className="px-1.5 py-1 rounded text-zinc-500 hover:text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[10px] font-bold cursor-pointer"
                                 >
                                   All
                                 </button>
@@ -1109,13 +1196,21 @@ export default function Schedule() {
                 </div>
               )}
 
-              {/* Live Preview Summary Card */}
-              <div className="bg-gradient-to-br from-red-50/70 to-rose-50/40 dark:from-red-950/20 dark:to-rose-950/10 border border-red-200/80 dark:border-red-900/40 rounded-2xl p-3.5 space-y-1.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Schedule Preview</span>
+              {/* Live Preview Card */}
+              <div className="bg-red-50/70 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-2xl p-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Schedule Preview</span>
+                  </div>
+                  {calculatedClasses.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold uppercase">
+                      {calculatedClasses.length} Classes
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+
+                <p className="text-sm font-bold text-zinc-900 dark:text-white">
                   {calculatedClasses.length === 0 ? (
                     <span className="text-zinc-400 font-normal">Select days and date range to calculate classes.</span>
                   ) : (
@@ -1124,8 +1219,9 @@ export default function Schedule() {
                     </span>
                   )}
                 </p>
+
                 {calculatedClasses.length > 0 && (
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-0.5">
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-0.5 pt-1 border-t border-red-200/60 dark:border-red-900/30">
                     <p>
                       <strong>Duration:</strong> {format(calculatedClasses[0].date, 'dd MMM yyyy')} to {format(calculatedClasses[calculatedClasses.length - 1].date, 'dd MMM yyyy')}
                     </p>
@@ -1143,14 +1239,14 @@ export default function Schedule() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || calculatedClasses.length === 0}
-                  className="flex-1 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <span>Scheduling...</span>
@@ -1183,7 +1279,7 @@ export default function Schedule() {
             </button>
 
             <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <div className="p-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
                 <Edit3 className="w-5 h-5" />
               </div>
               <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Edit Scheduled Class</h2>
@@ -1199,7 +1295,7 @@ export default function Schedule() {
                   required
                   value={editingClass.subject}
                   onChange={e => setEditingClass({...editingClass, subject: e.target.value})}
-                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 />
               </div>
 
@@ -1213,7 +1309,7 @@ export default function Schedule() {
                     required
                     value={editingClass.date}
                     onChange={e => setEditingClass({...editingClass, date: e.target.value})}
-                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                   />
                 </div>
 
@@ -1226,7 +1322,7 @@ export default function Schedule() {
                     required
                     value={editingClass.time}
                     onChange={e => setEditingClass({...editingClass, time: e.target.value})}
-                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                     placeholder="e.g. 06:00 PM"
                   />
                 </div>
@@ -1239,7 +1335,7 @@ export default function Schedule() {
                 <select
                   value={editingClass.status}
                   onChange={e => setEditingClass({...editingClass, status: e.target.value})}
-                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 >
                   <option value="Upcoming">Upcoming</option>
                   <option value="Completed">Completed</option>
@@ -1258,7 +1354,7 @@ export default function Schedule() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-500 transition-all disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -1323,7 +1419,7 @@ export default function Schedule() {
               <button
                 type="button"
                 onClick={() => handleOpenEdit(selectedEventModal)}
-                className="flex-1 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/30 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 flex items-center justify-center gap-1.5"
+                className="flex-1 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/30 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
                 <span>Edit Time</span>
@@ -1337,7 +1433,7 @@ export default function Schedule() {
                     setSelectedEventModal(null);
                   }
                 }}
-                className="flex-1 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-100 flex items-center justify-center gap-1.5"
+                className="flex-1 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-100 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete</span>

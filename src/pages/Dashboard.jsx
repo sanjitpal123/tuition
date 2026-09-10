@@ -30,6 +30,7 @@ import {
   Bell,
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
+import { DashboardSkeleton } from "../components/ui/Skeleton";
 
 function StatCard({ title, value, icon: Icon, trend, subtext }) {
   return (
@@ -76,6 +77,7 @@ export default function Dashboard() {
     recentActivity,
     batches,
     realNotifications,
+    isLoading,
   } = useData();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -184,6 +186,10 @@ export default function Dashboard() {
   const unreadNotificationsCount = (realNotifications || []).filter(
     (n) => !n.isRead,
   ).length;
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6 md:space-y-8">

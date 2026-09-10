@@ -34,6 +34,7 @@ import {
   UploadCloud
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { HomeworkSkeleton } from '../components/ui/Skeleton';
 
 export default function Homework() {
   const navigate = useNavigate();
@@ -248,6 +249,10 @@ export default function Homework() {
   }, [homeworkList, now]);
 
   const activeCount = homeworkList.length - overdueCount;
+
+  if (isLoading) {
+    return <HomeworkSkeleton />;
+  }
 
   return (
     <div className="max-w-5xl mx-auto">

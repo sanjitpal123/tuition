@@ -27,11 +27,12 @@ import {
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import api from '../lib/api';
+import { AttendanceSkeleton } from '../components/ui/Skeleton';
 
 export default function Attendance() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { batches, students, refreshData, realNotifications, scheduleClasses } = useData();
+  const { batches, students, refreshData, realNotifications, scheduleClasses, isLoading } = useData();
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -183,6 +184,10 @@ export default function Attendance() {
     newDate.setDate(newDate.getDate() + 1);
     setCurrentDate(newDate);
   };
+
+  if (isLoading) {
+    return <AttendanceSkeleton />;
+  }
 
   return (
     <div className="max-w-5xl mx-auto">

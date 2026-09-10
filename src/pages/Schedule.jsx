@@ -378,8 +378,10 @@ function ClassListView({ scheduleClasses, batches, deleteClass, onEditClass }) {
   );
 }
 
+import { CalendarSkeleton } from '../components/ui/Skeleton';
+
 export default function Schedule() {
-  const { scheduleClasses, batches, addScheduleClass, addBulkScheduleClasses, updateScheduleClass, deleteClass } = useData();
+  const { scheduleClasses, batches, addScheduleClass, addBulkScheduleClasses, updateScheduleClass, deleteClass, isLoading } = useData();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -750,6 +752,14 @@ export default function Schedule() {
       };
     })
     .filter(Boolean);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5 pb-24 sm:pb-8">
+        <CalendarSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="relative pb-24 sm:pb-8 space-y-5">

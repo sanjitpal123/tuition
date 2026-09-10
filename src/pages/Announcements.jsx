@@ -7,9 +7,10 @@ import { Input } from '../components/ui/Input';
 import { Megaphone, Plus, Search, Users, X, Send } from 'lucide-react';
 import api from '../lib/api';
 import { format } from 'date-fns';
+import { AnnouncementsSkeleton } from '../components/ui/Skeleton';
 
 export default function Announcements() {
-  const { batches, students, notifications: announcements, refreshData } = useData();
+  const { batches, students, notifications: announcements, refreshData, isLoading } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +75,10 @@ export default function Announcements() {
     if (a.audience === 'parents') return 'Parents';
     return 'Students & Parents';
   };
+
+  if (isLoading) {
+    return <AnnouncementsSkeleton />;
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8">

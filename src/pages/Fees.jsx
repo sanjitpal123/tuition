@@ -33,11 +33,12 @@ import {
 import { Input } from '../components/ui/Input';
 import { format } from 'date-fns';
 import { getStudentBillingCycle } from '../lib/feeCycles';
+import { FeesSkeleton } from '../components/ui/Skeleton';
 
 export default function Fees() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { students, feePayments, recordFeePayment, updateStudent, deleteFeePayment, updateFeePayment, realNotifications } = useData();
+  const { students, feePayments, recordFeePayment, updateStudent, deleteFeePayment, updateFeePayment, realNotifications, isLoading } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -251,6 +252,10 @@ export default function Fees() {
       }
     }
   };
+
+  if (isLoading) {
+    return <FeesSkeleton />;
+  }
 
   return (
     <div className="max-w-7xl mx-auto">

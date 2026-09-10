@@ -28,6 +28,7 @@ import {
   Maximize2,
   Download
 } from 'lucide-react';
+import { StudentDashboardSkeleton } from '../components/ui/Skeleton';
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -75,14 +76,7 @@ export default function StudentDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
-        <div className="relative mb-4">
-          <div className="w-12 h-12 border-4 border-red-200 dark:border-red-950 border-t-red-600 rounded-full animate-spin"></div>
-        </div>
-        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Loading tuition workspace...</p>
-      </div>
-    );
+    return <StudentDashboardSkeleton />;
   }
 
   if (error) {

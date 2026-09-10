@@ -17,6 +17,7 @@ import {
   Layers,
   Calendar
 } from 'lucide-react';
+import { StudentFeesSkeleton } from '../components/ui/Skeleton';
 
 export default function StudentFees() {
   const navigate = useNavigate();
@@ -127,12 +128,7 @@ export default function StudentFees() {
   const monthsPaidCount = monthlyFeeGroups.filter(g => g.status === 'Paid' || g.status === 'Extra').length;
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
-        <div className="w-12 h-12 border-4 border-red-200 dark:border-red-950 border-t-red-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Loading fee records...</p>
-      </div>
-    );
+    return <StudentFeesSkeleton />;
   }
 
   if (error || !data) {

@@ -24,8 +24,10 @@ import {
   ChevronRight
 } from 'lucide-react';
 
+import { BatchesSkeleton } from '../components/ui/Skeleton';
+
 export default function Batches() {
-  const { batches, addBatch, updateBatch, deleteBatch, realNotifications } = useData();
+  const { batches, addBatch, updateBatch, deleteBatch, realNotifications, isLoading } = useData();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   
@@ -107,6 +109,10 @@ export default function Batches() {
       deleteBatch(id);
     }
   };
+
+  if (isLoading) {
+    return <BatchesSkeleton />;
+  }
 
   return (
     <div className="space-y-5 pb-32">

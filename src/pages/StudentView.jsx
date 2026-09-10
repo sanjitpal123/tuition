@@ -6,6 +6,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { StudentViewSkeleton } from '../components/ui/Skeleton';
 import { getStudentBillingCycle } from '../lib/feeCycles';
 import {
   ArrowLeft,
@@ -220,11 +221,7 @@ export default function StudentView() {
   }, [student, feePayments]);
 
   if (isDataLoading) {
-    return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <div className="w-9 h-9 border-3 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <StudentViewSkeleton />;
   }
 
   if (!student) {

@@ -15,6 +15,7 @@ import {
   Building,
   ArrowLeft
 } from 'lucide-react';
+import { HomeworkSkeleton } from '../components/ui/Skeleton';
 
 export default function StudentHomework() {
   const navigate = useNavigate();
@@ -49,12 +50,7 @@ export default function StudentHomework() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
-        <div className="w-12 h-12 border-4 border-red-200 dark:border-red-950 border-t-red-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Loading homework assignments...</p>
-      </div>
-    );
+    return <HomeworkSkeleton />;
   }
 
   if (error || !data) {

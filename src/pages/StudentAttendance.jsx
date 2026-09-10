@@ -13,6 +13,7 @@ import {
 import { studentApi } from '../lib/api';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { MetricCardSkeleton, CalendarSkeleton } from '../components/ui/Skeleton';
 import {
   CheckSquare,
   AlertCircle,
@@ -226,9 +227,9 @@ export default function StudentAttendance() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
-        <div className="w-12 h-12 border-4 border-red-200 dark:border-red-950 border-t-red-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Loading attendance calendar...</p>
+      <div className="space-y-6 animate-in fade-in duration-200">
+        <MetricCardSkeleton count={3} />
+        <CalendarSkeleton />
       </div>
     );
   }

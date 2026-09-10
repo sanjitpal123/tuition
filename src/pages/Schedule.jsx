@@ -20,7 +20,8 @@ import {
   Trash2,
   CalendarDays,
   CheckCircle2,
-  Layers
+  Layers,
+  Sliders
 } from 'lucide-react';
 
 const locales = {
@@ -336,13 +337,23 @@ export default function Schedule() {
   const [formState, setFormState] = useState({
     batchId: '',
     subject: '',
-    time: '17:00', // 5:00 PM default
+    defaultTime: '17:00', // 5:00 PM
     singleDate: new Date().toISOString().split('T')[0],
+    singleTime: '17:00',
     selectedMonth: format(new Date(), 'yyyy-MM'),
     rangePreset: '3months', // '3months' | '6months' | '1year' | 'custom'
     startDate: new Date().toISOString().split('T')[0],
     endDate: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
-    selectedDays: ['Mon', 'Wed', 'Fri']
+    selectedDays: ['Mon', 'Wed', 'Fri'],
+    dayTimes: {
+      Mon: '17:00',
+      Tue: '17:00',
+      Wed: '17:00',
+      Thu: '17:00',
+      Fri: '17:00',
+      Sat: '10:00',
+      Sun: '15:00'
+    }
   });
 
   // Editing Form State for single class
@@ -353,21 +364,26 @@ export default function Schedule() {
     const batch = batches.find(b => (b.id || b._id) === batchId);
     let updatedDays = formState.selectedDays;
     let updatedSubject = formState.subject;
-    let updatedTime = formState.time;
+    let updatedDefaultTime = formState.defaultTime;
+    let updatedDayTimes = { ...formState.dayTimes };
 
     if (batch) {
       if (batch.subject && !formState.subject) {
         updatedSubject = batch.subject;
       }
       if (batch.time) {
-        // Parse time if formatted
         const timeMatch = batch.time.match(/(\d+):(\d+)/);
         if (timeMatch) {
           let h = parseInt(timeMatch[1], 10);
           const m = timeMatch[2];
           if (/pm/i.test(batch.time) && h < 12) h += 12;
           if (/am/i.test(batch.time) && h === 12) h = 0;
-          updatedTime = `${String(h).padStart(2, '0')}:${m}`;
+          const parsed = `${String(h).padStart(2, '0')}:${m}`;
+          updatedDefaultTime = parsed;
+          // Apply to day times
+          Object.keys(updatedDayTimes).forEach(k => {
+            updatedDayTimes[k] = parsed;
+          });
         }
       }
       if (batch.schedule) {
@@ -385,7 +401,9 @@ export default function Schedule() {
       ...prev,
       batchId,
       subject: updatedSubject,
-      time: updatedTime,
+      defaultTime: updatedDefaultTime,
+      singleTime: updatedDefaultTime,
+      dayTimes: updatedDayTimes,
       selectedDays: updatedDays
     }));
   };
@@ -398,6 +416,33 @@ export default function Schedule() {
         ? prev.selectedDays.filter(d => d !== dayKey)
         : [...prev.selectedDays, dayKey];
       return { ...prev, selectedDays: newDays };
+    });
+  };
+
+  // Update specific day's time
+  const handleDayTimeChange = (dayKey, newTime) => {
+    setFormState(prev => ({
+      ...prev,
+      dayTimes: {
+        ...prev.dayTimes,
+        [dayKey]: newTime
+      }
+    }));
+  };
+
+  // Quick Apply One Day's Time to All Selected Days
+  const handleApplyTimeToAll = (sourceDayKey) => {
+    const timeToApply = formState.dayTimes[sourceDayKey] || formState.defaultTime;
+    setFormState(prev => {
+      const updated = { ...prev.dayTimes };
+      prev.selectedDays.forEach(d => {
+        updated[d] = timeToApply;
+      });
+      return {
+        ...prev,
+        defaultTime: timeToApply,
+        dayTimes: updated
+      };
     });
   };
 
@@ -419,10 +464,16 @@ export default function Schedule() {
     }));
   };
 
-  // Calculate matching dates for preview & submission
-  const calculatedDates = useMemo(() => {
+  // Calculate matching dates and times for preview & submission
+  const calculatedClasses = useMemo(() => {
     if (scheduleMode === 'single') {
-      return formState.singleDate ? [new Date(formState.singleDate + 'T12:00:00')] : [];
+      if (!formState.singleDate) return [];
+      const d = new Date(formState.singleDate + 'T12:00:00');
+      return [{
+        date: d,
+        dayKey: WEEKDAYS[d.getDay() === 0 ? 6 : d.getDay() - 1]?.key || 'Mon',
+        time: formState.singleTime || formState.defaultTime || '17:00'
+      }];
     }
 
     let start, end;
@@ -443,20 +494,25 @@ export default function Schedule() {
     if (!formState.selectedDays || formState.selectedDays.length === 0) return [];
 
     const dayKeys = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dates = [];
+    const list = [];
     const current = new Date(start);
     let safetyCounter = 0;
 
     while (current <= end && safetyCounter < 400) {
       const dayKey = dayKeys[current.getDay()];
       if (formState.selectedDays.includes(dayKey)) {
-        dates.push(new Date(current.getFullYear(), current.getMonth(), current.getDate(), 12, 0, 0));
+        const classTime = formState.dayTimes[dayKey] || formState.defaultTime || '17:00';
+        list.push({
+          date: new Date(current.getFullYear(), current.getMonth(), current.getDate(), 12, 0, 0),
+          dayKey,
+          time: classTime
+        });
       }
       current.setDate(current.getDate() + 1);
       safetyCounter++;
     }
 
-    return dates;
+    return list;
   }, [scheduleMode, formState]);
 
   // Submit Classes
@@ -470,39 +526,35 @@ export default function Schedule() {
       alert("Please specify a subject.");
       return;
     }
-    if (!formState.time) {
-      alert("Please specify a class time.");
-      return;
-    }
-    if (calculatedDates.length === 0) {
+    if (calculatedClasses.length === 0) {
       alert("No class dates match the selected schedule criteria.");
       return;
     }
 
     setIsSubmitting(true);
-    const displayTime = formatTimeToAmPm(formState.time);
 
     try {
       if (scheduleMode === 'single') {
+        const item = calculatedClasses[0];
         await addScheduleClass({
           batchId: formState.batchId,
           subject: formState.subject,
-          time: displayTime,
-          date: calculatedDates[0].toISOString(),
+          time: formatTimeToAmPm(item.time),
+          date: item.date.toISOString(),
           status: 'Upcoming'
         });
-        setCurrentDate(calculatedDates[0]);
+        setCurrentDate(item.date);
       } else {
-        const classesToInsert = calculatedDates.map(d => ({
+        const classesToInsert = calculatedClasses.map(item => ({
           batchId: formState.batchId,
           subject: formState.subject,
-          time: displayTime,
-          date: d.toISOString(),
+          time: formatTimeToAmPm(item.time),
+          date: item.date.toISOString(),
           status: 'Upcoming'
         }));
         await addBulkScheduleClasses(classesToInsert);
-        if (calculatedDates.length > 0) {
-          setCurrentDate(calculatedDates[0]);
+        if (calculatedClasses.length > 0) {
+          setCurrentDate(calculatedClasses[0].date);
         }
       }
 
@@ -511,13 +563,23 @@ export default function Schedule() {
       setFormState({
         batchId: '',
         subject: '',
-        time: '17:00',
+        defaultTime: '17:00',
         singleDate: new Date().toISOString().split('T')[0],
+        singleTime: '17:00',
         selectedMonth: format(new Date(), 'yyyy-MM'),
         rangePreset: '3months',
         startDate: new Date().toISOString().split('T')[0],
         endDate: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
-        selectedDays: ['Mon', 'Wed', 'Fri']
+        selectedDays: ['Mon', 'Wed', 'Fri'],
+        dayTimes: {
+          Mon: '17:00',
+          Tue: '17:00',
+          Wed: '17:00',
+          Thu: '17:00',
+          Fri: '17:00',
+          Sat: '10:00',
+          Sun: '15:00'
+        }
       });
     } catch (err) {
       console.error(err);
@@ -616,7 +678,7 @@ export default function Schedule() {
         <div className="flex-auto hidden sm:block">
           <h1 className="text-2xl sm:text-3xl font-bold leading-6 text-zinc-900 dark:text-zinc-100">Schedule & Timetable</h1>
           <p className="mt-1 sm:mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            Schedule single classes or recurring sessions for a month or full academic year.
+            Schedule single classes or recurring sessions for a month or full academic year with individual day timings.
           </p>
         </div>
         
@@ -724,7 +786,7 @@ export default function Schedule() {
       )}
 
       {/* ========================================================================= */}
-      {/* 1. SCHEDULE CLASS MODAL (SINGLE / MONTHLY / YEARLY) */}
+      {/* 1. SCHEDULE CLASS MODAL (WITH INDIVIDUAL DAY TIMINGS) */}
       {/* ========================================================================= */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
@@ -747,10 +809,10 @@ export default function Schedule() {
               <div className="p-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
                 <CalendarDays className="w-5 h-5" />
               </div>
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Schedule Class</h2>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Schedule Classes</h2>
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
-              Set single sessions or automatically schedule for a month or full year.
+              Set single sessions or schedule recurring classes with custom time per day.
             </p>
 
             {/* Schedule Mode Switcher */}
@@ -816,71 +878,67 @@ export default function Schedule() {
                 </select>
               </div>
 
-              {/* Subject & Time Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
-                    Subject *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formState.subject}
-                    onChange={e => setFormState({...formState, subject: e.target.value})}
-                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                    placeholder="e.g. Mathematics"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
-                    Class Time * (Changeable)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={formState.time}
-                      onChange={e => setFormState({...formState, time: e.target.value})}
-                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                      placeholder="e.g. 05:00 PM or 17:00"
-                    />
-                    <Clock className="w-4 h-4 text-zinc-400 absolute right-3.5 top-3 pointer-events-none" />
-                  </div>
-                </div>
+              {/* Subject */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formState.subject}
+                  onChange={e => setFormState({...formState, subject: e.target.value})}
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  placeholder="e.g. Mathematics"
+                />
               </div>
 
               {/* Mode 1: Single Day */}
               {scheduleMode === 'single' && (
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
-                    Class Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formState.singleDate}
-                    onChange={e => setFormState({...formState, singleDate: e.target.value})}
-                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                      Class Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formState.singleDate}
+                      onChange={e => setFormState({...formState, singleDate: e.target.value})}
+                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                      Class Time *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="time"
+                        required
+                        value={formState.singleTime}
+                        onChange={e => setFormState({...formState, singleTime: e.target.value})}
+                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Mode 2: Per Month */}
               {scheduleMode === 'month' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
-                      Target Month *
-                    </label>
-                    <input
-                      type="month"
-                      required
-                      value={formState.selectedMonth}
-                      onChange={e => setFormState({...formState, selectedMonth: e.target.value})}
-                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                    Target Month *
+                  </label>
+                  <input
+                    type="month"
+                    required
+                    value={formState.selectedMonth}
+                    onChange={e => setFormState({...formState, selectedMonth: e.target.value})}
+                    className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                  />
                 </div>
               )}
 
@@ -924,7 +982,7 @@ export default function Schedule() {
                         required
                         value={formState.startDate}
                         onChange={e => setFormState({...formState, startDate: e.target.value})}
-                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                       />
                     </div>
                     <div>
@@ -936,80 +994,147 @@ export default function Schedule() {
                         required
                         value={formState.endDate}
                         onChange={e => setFormState({...formState, endDate: e.target.value, rangePreset: 'custom'})}
-                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Recurring Weekday Chips (For Month & Year Modes) */}
+              {/* Recurring Weekday Selection & Per-Day Time Config (For Month & Year Modes) */}
               {(scheduleMode === 'month' || scheduleMode === 'year') && (
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-                      Recurring Days of the Week *
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Wed', 'Fri'] }))}
-                        className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
-                      >
-                        Mon/Wed/Fri
-                      </button>
-                      <span className="text-zinc-300 dark:text-zinc-700">|</span>
-                      <button
-                        type="button"
-                        onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }))}
-                        className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
-                      >
-                        Mon-Fri
-                      </button>
+                <div className="space-y-3 pt-1">
+                  
+                  {/* Day Chips */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                        1. Select Recurring Days *
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Wed', 'Fri'] }))}
+                          className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
+                        >
+                          Mon/Wed/Fri
+                        </button>
+                        <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setFormState(prev => ({ ...prev, selectedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }))}
+                          className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold"
+                        >
+                          Mon-Fri
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                      {WEEKDAYS.map(w => {
+                        const isSelected = formState.selectedDays.includes(w.key);
+                        return (
+                          <button
+                            key={w.key}
+                            type="button"
+                            onClick={() => toggleDay(w.key)}
+                            className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                              isSelected
+                                ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500/20'
+                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                            }`}
+                          >
+                            {w.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
-                    {WEEKDAYS.map(w => {
-                      const isSelected = formState.selectedDays.includes(w.key);
-                      return (
-                        <button
-                          key={w.key}
-                          type="button"
-                          onClick={() => toggleDay(w.key)}
-                          className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                            isSelected
-                              ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-500/20'
-                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                          }`}
-                        >
-                          {w.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* 2. Individual Day Timings Card */}
+                  {formState.selectedDays.length > 0 && (
+                    <div className="bg-zinc-50 dark:bg-zinc-800/40 p-3.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
+                          <Clock className="w-3.5 h-3.5 text-red-500" />
+                          <span>2. Set Timings For Each Day</span>
+                        </div>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          (e.g. Mon 5 PM, Sun 3 PM)
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {formState.selectedDays.map(dayKey => {
+                          const weekdayObj = WEEKDAYS.find(w => w.key === dayKey);
+                          const currentDayTime = formState.dayTimes[dayKey] || formState.defaultTime || '17:00';
+
+                          return (
+                            <div 
+                              key={dayKey} 
+                              className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/70 dark:border-zinc-800 shadow-2xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-6 h-6 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                                  {dayKey[0]}
+                                </span>
+                                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate">
+                                  {weekdayObj?.full || dayKey}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="time"
+                                  value={currentDayTime}
+                                  onChange={(e) => handleDayTimeChange(dayKey, e.target.value)}
+                                  className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleApplyTimeToAll(dayKey)}
+                                  title="Apply this time to all selected days"
+                                  className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[10px] font-semibold"
+                                >
+                                  All
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               )}
 
               {/* Live Preview Summary Card */}
-              <div className="bg-gradient-to-br from-red-50/70 to-rose-50/40 dark:from-red-950/20 dark:to-rose-950/10 border border-red-200/80 dark:border-red-900/40 rounded-2xl p-3.5 space-y-1">
+              <div className="bg-gradient-to-br from-red-50/70 to-rose-50/40 dark:from-red-950/20 dark:to-rose-950/10 border border-red-200/80 dark:border-red-900/40 rounded-2xl p-3.5 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Schedule Preview</span>
                 </div>
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  {calculatedDates.length === 0 ? (
+                  {calculatedClasses.length === 0 ? (
                     <span className="text-zinc-400 font-normal">Select days and date range to calculate classes.</span>
                   ) : (
                     <span>
-                      📅 <strong className="text-red-600 dark:text-red-400 font-extrabold">{calculatedDates.length} classes</strong> will be scheduled at {formatTimeToAmPm(formState.time) || '5:00 PM'}.
+                      📅 <strong className="text-red-600 dark:text-red-400 font-extrabold">{calculatedClasses.length} classes</strong> will be scheduled.
                     </span>
                   )}
                 </p>
-                {calculatedDates.length > 0 && (
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    From {format(calculatedDates[0], 'dd MMM yyyy')} to {format(calculatedDates[calculatedDates.length - 1], 'dd MMM yyyy')} ({formState.selectedDays.join(', ')})
-                  </p>
+                {calculatedClasses.length > 0 && (
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-0.5">
+                    <p>
+                      <strong>Duration:</strong> {format(calculatedClasses[0].date, 'dd MMM yyyy')} to {format(calculatedClasses[calculatedClasses.length - 1].date, 'dd MMM yyyy')}
+                    </p>
+                    {scheduleMode !== 'single' && (
+                      <p className="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                        <strong>Timings:</strong> {formState.selectedDays.map(d => `${d} @ ${formatTimeToAmPm(formState.dayTimes[d] || formState.defaultTime)}`).join(' | ')}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1024,7 +1149,7 @@ export default function Schedule() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || calculatedDates.length === 0}
+                  disabled={isSubmitting || calculatedClasses.length === 0}
                   className="flex-1 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
@@ -1032,7 +1157,7 @@ export default function Schedule() {
                   ) : (
                     <>
                       <Check className="w-4 h-4 stroke-[3]" />
-                      <span>{calculatedDates.length > 1 ? `Schedule ${calculatedDates.length} Classes` : 'Save Class'}</span>
+                      <span>{calculatedClasses.length > 1 ? `Schedule ${calculatedClasses.length} Classes` : 'Save Class'}</span>
                     </>
                   )}
                 </button>

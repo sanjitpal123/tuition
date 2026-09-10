@@ -148,6 +148,14 @@ export default function Fees() {
       .toUpperCase();
   };
 
+  const [isDeletingInstallment, setIsDeletingInstallment] = useState(false);
+
+  const handleOpenRecordPaymentForStudent = (student) => {
+    setSelectedStudentId(student.id);
+    setPaymentAmount(student.remainingBalance > 0 ? String(student.remainingBalance) : '');
+    setIsModalOpen(true);
+  };
+
   const handleRecordPayment = async (e) => {
     e.preventDefault();
     if (!selectedStudentId) return;
@@ -170,6 +178,18 @@ export default function Fees() {
       alert("Failed to record payment.");
     } finally {
       setIsSubmittingPayment(false);
+    }
+  };
+
+  const handleDeleteInstallment = async (installmentId) => {
+    if (!window.confirm("Are you sure you want to delete this payment installment?")) return;
+    try {
+      setIsDeletingInstallment(true);
+      await deleteFeePaymentById(installmentId);
+    } catch (err) {
+      alert("Failed to delete installment.");
+    } finally {
+      setIsDeletingInstallment(false);
     }
   };
 
@@ -215,32 +235,6 @@ export default function Fees() {
     setEditingFeeStudent(student);
     setNewFeeAmount(student.monthlyFee || student.fees || 0);
     setIsEditFeeModalOpen(true);
-  };
-
-  const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false);
-  const [editingPaymentStudent, setEditingPaymentStudent] = useState(null);
-  const [newPaymentAmount, setNewPaymentAmount] = useState('');
-  const [isSubmittingPaymentEdit, setIsSubmittingPaymentEdit] = useState(false);
-
-  const handleOpenEditPayment = (student) => {
-    setEditingPaymentStudent(student);
-    setNewPaymentAmount(student.totalPaidThisMonth || 0);
-    setIsEditPaymentModalOpen(true);
-  };
-
-  const handleEditPaymentSubmit = async (e) => {
-    e.preventDefault();
-    if (newPaymentAmount !== null && newPaymentAmount !== "") {
-      try {
-        setIsSubmittingPaymentEdit(true);
-        await updateFeePayment(editingPaymentStudent.id, selectedMonth, Number(newPaymentAmount));
-        setIsEditPaymentModalOpen(false);
-      } catch (err) {
-        alert("Failed to update payment amount.");
-      } finally {
-        setIsSubmittingPaymentEdit(false);
-      }
-    }
   };
 
   const handleEditFeeSubmit = async (e) => {
@@ -540,11 +534,11 @@ export default function Fees() {
 
                     <button
                       type="button"
-                      onClick={() => handleOpenEditPayment(student)}
-                      className="w-10 h-8.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center active:scale-95 transition-all flex-shrink-0"
-                      title="Record/Edit Payment Amount"
+                      onClick={() => handleOpenRecordPaymentForStudent(student)}
+                      className="w-10 h-8.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-red-500 flex items-center justify-center active:scale-95 transition-all flex-shrink-0"
+                      title="Record Payment / Add Installment"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      <Plus className="w-4 h-4 text-emerald-500" />
                     </button>
 
                     {(student.computedFeeStatus === 'Paid' || student.computedFeeStatus === 'Extra' || student.totalPaidThisMonth > 0) && (
@@ -552,7 +546,7 @@ export default function Fees() {
                         type="button"
                         onClick={() => handleDeletePaymentClick(student.id)}
                         className="w-10 h-8.5 rounded-xl border border-red-500/20 text-red-500 hover:bg-red-500/10 flex items-center justify-center active:scale-95 transition-all flex-shrink-0"
-                        title="Delete Payment Record"
+                        title="Delete All Payment Records for this Month"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -576,7 +570,11 @@ export default function Fees() {
         {/* 4. Mobile Floating Action Button */}
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setSelectedStudentId('');
+            setPaymentAmount('');
+            setIsModalOpen(true);
+          }}
           style={{
             bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
             right: '1.25rem'
@@ -604,7 +602,11 @@ export default function Fees() {
               <Download className="w-4 h-4 mr-2" />
               Export
             </Button>
-            <Button onClick={() => setIsModalOpen(true)} className="flex items-center bg-red-600 hover:bg-red-500 text-white font-semibold">
+            <Button onClick={() => {
+              setSelectedStudentId('');
+              setPaymentAmount('');
+              setIsModalOpen(true);
+            }} className="flex items-center bg-red-600 hover:bg-red-500 text-white font-semibold">
               <Plus className="w-4 h-4 mr-2" />
               Record Payment
             </Button>
@@ -648,8 +650,8 @@ export default function Fees() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Overdue</p>
-                <Badge variant={stats.overdue > 0 ? "danger" : "default"} className="text-xs">
-                  {stats.overdue > 0 ? 'Needs Action' : 'Good'}
+                <Badge variant="error" className="text-xs">
+                  {stats.expected ? Math.round((stats.overdue / stats.expected) * 100) : 0}%
                 </Badge>
               </div>
               <p className="mt-2 text-3xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight">₹{stats.overdue.toLocaleString()}</p>
@@ -657,26 +659,30 @@ export default function Fees() {
           </Card>
         </div>
 
-        {/* Table & Cards container */}
+        {/* Filter Bar */}
         <Card className="border border-zinc-200 dark:border-zinc-800">
-          <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
-            <CardTitle>Fee Records</CardTitle>
-            <div className="flex gap-3">
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 cursor-pointer"
-              >
-                {monthOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <Input 
-                icon={Search} 
-                placeholder="Search records..." 
-                className="w-64" 
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white font-semibold text-sm rounded-xl px-4 py-2.5 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-red-500/20 shadow-sm cursor-pointer"
+                >
+                  {monthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+            <div className="relative w-72">
+              <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                placeholder="Search students..."
+                className="pl-9 bg-white dark:bg-zinc-900"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -720,6 +726,8 @@ export default function Fees() {
                   <TableCell>
                     {student.computedFeeStatus === 'Paid' ? (
                       <Badge variant="success">Paid</Badge>
+                    ) : student.computedFeeStatus === 'Extra' ? (
+                      <Badge variant="success">+₹{student.extraPaid} Extra</Badge>
                     ) : student.computedFeeStatus === 'Overdue' ? (
                       <Badge variant="error">Overdue</Badge>
                     ) : (
@@ -728,12 +736,17 @@ export default function Fees() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">
-                      <button onClick={() => handleOpenEditPayment(student)} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 transition-colors" title="Record/Edit Payment Amount">
-                        <Edit2 className="w-4 h-4" />
+                      <button 
+                        onClick={() => handleOpenRecordPaymentForStudent(student)} 
+                        className="px-2.5 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs font-bold flex items-center gap-1 transition-colors" 
+                        title="Record Payment / Add Installment"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Payment</span>
                       </button>
 
-                      {student.computedFeeStatus === 'Paid' && (
-                        <button onClick={() => handleDeletePaymentClick(student.id)} className="text-zinc-400 hover:text-red-500 p-1 transition-colors" title="Delete Payment Record">
+                      {student.totalPaidThisMonth > 0 && (
+                        <button onClick={() => handleDeletePaymentClick(student.id)} className="text-zinc-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors" title="Delete Payment Record">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
@@ -757,126 +770,158 @@ export default function Fees() {
       {/* MODALS */}
       {/* ========================================================================= */}
 
-      {/* Record Payment Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-          <div 
-            className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
-            style={{
-              paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))'
-            }}
-          >
-            <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-6 sm:hidden" />
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">Record Payment</h2>
-            
-            <form onSubmit={handleRecordPayment} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Select Student</label>
-                <select 
-                  required
-                  value={selectedStudentId} 
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setSelectedStudentId(id);
-                    const s = pendingStudents.find(st => st.id === id);
-                    if (s) setPaymentAmount(s.remainingBalance || 0);
-                  }}
-                  className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
-                >
-                  <option value="" disabled>Choose pending student</option>
-                  {pendingStudents.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} - {s.batchName} (Remaining: ₹{s.remainingBalance || 0})</option>
-                  ))}
-                </select>
-              </div>
+      {/* Record Payment / Add Installment Modal */}
+      {isModalOpen && (() => {
+        const activeStudent = studentStatuses.find(s => s.id === selectedStudentId);
+        const sId = activeStudent?._id || activeStudent?.id;
+        const studentThisMonthInstallments = feePayments.filter(p => {
+          const pStudentId = p.studentId?._id || p.studentId;
+          return pStudentId === sId && p.month === selectedMonth;
+        });
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Amount to Pay</label>
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-              
-              <div className="pt-6 pb-4 sm:pb-0 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:bg-zinc-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!selectedStudentId || pendingStudents.length === 0 || isSubmittingPayment}
-                  className="flex-1 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none transition-all"
-                >
-                  {isSubmittingPayment ? 'Saving...' : 'Confirm Payment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-
-
-      {/* Edit Payment Modal */}
-      {isEditPaymentModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#0a0a0a] rounded-2xl w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-            <div className="p-6 relative">
-              <button 
-                onClick={() => setIsEditPaymentModalOpen(false)}
-                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full p-1.5"
-              >
+        return (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+            <div 
+              className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+              style={{
+                paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))'
+              }}
+            >
+              <div className="w-12 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full mx-auto mb-6 sm:hidden" />
+              <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-white transition-colors">
                 <X className="h-5 w-5" />
               </button>
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Edit Payment Amount</h2>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">Update the total amount paid by {editingPaymentStudent?.name} for this month.</p>
               
-              <form onSubmit={handleEditPaymentSubmit} className="space-y-4">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">Record Fee Payment</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
+                Month: <strong className="text-zinc-800 dark:text-zinc-200">{format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</strong>
+              </p>
+              
+              <form onSubmit={handleRecordPayment} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Total Paid (₹)</label>
-                  <input
-                    type="number"
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Select Student</label>
+                  <select 
                     required
-                    min="0"
-                    value={newPaymentAmount}
-                    onChange={e => setNewPaymentAmount(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 transition-colors"
+                    value={selectedStudentId} 
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedStudentId(id);
+                      const s = studentStatuses.find(st => st.id === id);
+                      if (s) {
+                        setPaymentAmount(s.remainingBalance > 0 ? String(s.remainingBalance) : String(s.monthlyFee || ''));
+                      }
+                    }}
+                    className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 text-sm font-medium"
+                  >
+                    <option value="" disabled>Choose student</option>
+                    {studentStatuses.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} - {s.batchName || 'Batch'} {s.remainingBalance > 0 ? `(Remaining: ₹${s.remainingBalance})` : '(Paid in Full)'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {activeStudent && (
+                  <div className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-200/70 dark:border-zinc-800 space-y-3">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                        <span className="text-[10px] uppercase font-bold text-zinc-400 block">Monthly Fee</span>
+                        <span className="text-sm font-extrabold text-zinc-900 dark:text-white">₹{activeStudent.monthlyFee}</span>
+                      </div>
+                      <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                        <span className="text-[10px] uppercase font-bold text-zinc-400 block">Paid So Far</span>
+                        <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">₹{activeStudent.totalPaidThisMonth}</span>
+                      </div>
+                      <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                        <span className="text-[10px] uppercase font-bold text-zinc-400 block">Remaining</span>
+                        <span className={`text-sm font-extrabold ${activeStudent.remainingBalance > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          {activeStudent.remainingBalance > 0 ? `₹${activeStudent.remainingBalance}` : activeStudent.extraPaid > 0 ? `+₹${activeStudent.extraPaid}` : '₹0'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Recorded Installments Breakdown */}
+                    {studentThisMonthInstallments.length > 0 && (
+                      <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 space-y-1.5">
+                        <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                          Recorded Installments ({studentThisMonthInstallments.length}):
+                        </span>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {studentThisMonthInstallments.map((inst, idx) => (
+                            <div key={inst._id || idx} className="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
+                              <span className="font-bold text-zinc-900 dark:text-white">
+                                Installment #{idx + 1}: ₹{inst.amount}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-zinc-400">
+                                  {inst.createdAt ? format(new Date(inst.createdAt), 'dd MMM') : ''}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={isDeletingInstallment}
+                                  onClick={() => handleDeleteInstallment(inst._id)}
+                                  className="text-red-500 hover:text-red-700 p-0.5 rounded"
+                                  title="Delete this installment"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                      Payment Amount to Add (₹)
+                    </label>
+                    {activeStudent && activeStudent.remainingBalance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount(String(activeStudent.remainingBalance))}
+                        className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline"
+                      >
+                        Set Remaining (₹{activeStudent.remainingBalance})
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    placeholder="Enter amount to add..."
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    className="w-full bg-gray-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 text-base font-bold"
                   />
                 </div>
                 
-                <div className="flex gap-3 pt-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setIsEditPaymentModalOpen(false)}
-                    className="flex-1"
+                <div className="pt-4 pb-2 sm:pb-0 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:bg-zinc-800 transition-colors"
                   >
                     Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    className="flex-1"
-                    disabled={isSubmittingPaymentEdit}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!selectedStudentId || !paymentAmount || isSubmittingPayment}
+                    className="flex-1 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none transition-all"
                   >
-                    {isSubmittingPaymentEdit ? 'Saving...' : 'Save Payment'}
-                  </Button>
+                    {isSubmittingPayment ? 'Saving...' : `Add Payment (+₹${paymentAmount || 0})`}
+                  </button>
                 </div>
               </form>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Edit Fee Modal */}
       {isEditFeeModalOpen && (

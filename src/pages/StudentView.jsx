@@ -838,7 +838,10 @@ export default function StudentView() {
                 <div className="flex items-center gap-2">
                   <Button 
                     size="sm" 
-                    onClick={() => { setPaymentAmount(monthlyTuitionFee || ''); setIsPayModalOpen(true); }}
+                    onClick={() => { 
+                      setPaymentAmount(currentMonthPending > 0 ? String(currentMonthPending) : String(monthlyTuitionFee || '')); 
+                      setIsPayModalOpen(true); 
+                    }}
                     className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-sm"
                   >
                     <IndianRupee className="w-4 h-4" />
@@ -1262,40 +1265,69 @@ export default function StudentView() {
             <button onClick={() => setIsPayModalOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
               <X className="h-5 w-5" />
             </button>
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">Record Fee Payment</h2>
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">Record Fee Payment</h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
+              Student: <strong className="text-zinc-800 dark:text-zinc-200">{student.name}</strong> ({student.batchName})
+            </p>
             
             <form onSubmit={handleRecordPaymentSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Student</label>
-                <p className="font-semibold text-zinc-900 dark:text-white">{student.name} ({student.batchName})</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fee Month</label>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Fee Month</label>
                 <input 
                   type="month" 
                   value={paymentMonth} 
                   onChange={(e) => setPaymentMonth(e.target.value)}
-                  className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                  className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 text-sm font-medium"
                 />
               </div>
 
+              <div className="bg-zinc-50 dark:bg-zinc-950 p-3.5 rounded-2xl border border-zinc-200/70 dark:border-zinc-800 grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400 block">Monthly Fee</span>
+                  <span className="text-sm font-extrabold text-zinc-900 dark:text-white">₹{monthlyTuitionFee}</span>
+                </div>
+                <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400 block">Paid ({paymentMonth})</span>
+                  <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                    ₹{studentFeeHistory.filter(p => p.month === paymentMonth).reduce((s, p) => s + (Number(p.amount) || 0), 0)}
+                  </span>
+                </div>
+                <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400 block">Remaining</span>
+                  <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400">
+                    ₹{Math.max(0, monthlyTuitionFee - studentFeeHistory.filter(p => p.month === paymentMonth).reduce((s, p) => s + (Number(p.amount) || 0), 0))}
+                  </span>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Amount Paid (₹)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Amount to Add (₹)</label>
+                  {Math.max(0, monthlyTuitionFee - studentFeeHistory.filter(p => p.month === paymentMonth).reduce((s, p) => s + (Number(p.amount) || 0), 0)) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmount(String(Math.max(0, monthlyTuitionFee - studentFeeHistory.filter(p => p.month === paymentMonth).reduce((s, p) => s + (Number(p.amount) || 0), 0))))}
+                      className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline"
+                    >
+                      Set Remaining (₹{Math.max(0, monthlyTuitionFee - studentFeeHistory.filter(p => p.month === paymentMonth).reduce((s, p) => s + (Number(p.amount) || 0), 0))})
+                    </button>
+                  )}
+                </div>
                 <input 
                   required
                   type="number" 
+                  min="1"
                   value={paymentAmount} 
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
+                  placeholder="Enter installment amount..."
+                  className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 font-bold text-base"
                 />
               </div>
 
               <div className="pt-4 flex gap-3">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setIsPayModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isRecordingPayment} className="flex-1 bg-red-600 hover:bg-red-500">
-                  {isRecordingPayment ? 'Recording...' : 'Confirm Payment'}
+                <Button type="submit" disabled={isRecordingPayment || !paymentAmount} className="flex-1 bg-red-600 hover:bg-red-500">
+                  {isRecordingPayment ? 'Recording...' : `Add Payment (+₹${paymentAmount || 0})`}
                 </Button>
               </div>
             </form>

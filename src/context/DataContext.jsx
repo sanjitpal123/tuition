@@ -160,26 +160,22 @@ export function DataProvider({ children }) {
   // Fees 
   const recordFeePayment = async (paymentData) => {
     const res = await api.post('/fees', paymentData);
-    // Also auto-update the student status locally
-    setStudents(prev => prev.map(s => s._id === paymentData.studentId || s.id === paymentData.studentId ? { ...s, feeStatus: 'Paid' } : s));
-    setFeePayments(prev => [res.data, ...prev]);
+    await refreshData();
     return res.data;
   };
 
   const deleteFeePayment = async (studentId, month) => {
     await api.delete(`/fees/${studentId}/${month}`);
-    setFeePayments(prev => prev.filter(f => !(f.studentId?._id === studentId && f.month === month) && !(f.studentId === studentId && f.month === month)));
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    if (month === currentMonth) {
-      setStudents(prev => prev.map(s => s._id === studentId || s.id === studentId ? { ...s, feeStatus: 'Pending' } : s));
-    }
+    await refreshData();
+  };
+
+  const deleteFeePaymentById = async (feeId) => {
+    await api.delete(`/fees/item/${feeId}`);
+    await refreshData();
   };
 
   const updateFeePayment = async (studentId, month, amount) => {
     const res = await api.put(`/fees/${studentId}/${month}`, { amount });
-    // Refresh the fees list locally or simply refetch everything
-    // It's cleaner to just refresh data to ensure the sum matches 
-    // since the backend might have merged multiple fee records into one.
     await refreshData();
     return res.data;
   };
@@ -200,6 +196,7 @@ export function DataProvider({ children }) {
     feePayments,
     recordFeePayment,
     deleteFeePayment,
+    deleteFeePaymentById,
     updateFeePayment,
     refreshData,
     isLoading,

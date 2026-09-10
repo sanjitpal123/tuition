@@ -7,31 +7,31 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { getStudentBillingCycle } from '../lib/feeCycles';
-import { 
-  ArrowLeft, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  CalendarDays, 
-  CreditCard, 
-  School, 
-  BookOpen, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  Key, 
-  Edit2, 
-  Trash2, 
-  ChevronRight, 
-  MessageSquare, 
-  Send, 
-  Printer, 
-  Copy, 
-  Check, 
-  X, 
-  IndianRupee, 
-  Plus, 
+import {
+  ArrowLeft,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  CalendarDays,
+  CreditCard,
+  School,
+  BookOpen,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Key,
+  Edit2,
+  Trash2,
+  ChevronRight,
+  MessageSquare,
+  Send,
+  Printer,
+  Copy,
+  Check,
+  X,
+  IndianRupee,
+  Plus,
   IdCard as IdCardIcon,
   ShieldCheck,
   GraduationCap
@@ -41,16 +41,16 @@ import api from '../lib/api';
 export default function StudentView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { 
-    students, 
-    batches, 
-    scheduleClasses, 
-    feePayments, 
-    recordFeePayment, 
-    updateStudent, 
-    deleteStudent, 
+  const {
+    students,
+    batches,
+    scheduleClasses,
+    feePayments,
+    recordFeePayment,
+    updateStudent,
+    deleteStudent,
     refreshData,
-    isLoading: isDataLoading 
+    isLoading: isDataLoading
   } = useData();
 
   const currentUser = JSON.parse(localStorage.getItem('tutorProfile') || '{"tuitionName":"Setupclass"}');
@@ -60,6 +60,20 @@ export default function StudentView() {
   const [stats, setStats] = useState(null);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+
+  // Calculate non-Sunday working school days in selected month
+  const schoolWorkingDays = React.useMemo(() => {
+    if (!selectedMonth) return 26;
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const totalDays = new Date(year, month, 0).getDate();
+    let sundays = 0;
+    for (let day = 1; day <= totalDays; day++) {
+      if (new Date(year, month - 1, day).getDay() === 0) {
+        sundays++;
+      }
+    }
+    return Math.max(1, totalDays - sundays);
+  }, [selectedMonth]);
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -80,7 +94,7 @@ export default function StudentView() {
   // Monthly Tuition Classes Count
   const totalTuitionClassesThisMonth = React.useMemo(() => {
     if (!student || !scheduleClasses) return 0;
-    
+
     let sBatchId = null;
     if (student.batchId) {
       sBatchId = typeof student.batchId === 'object' ? (student.batchId._id || student.batchId.id) : student.batchId;
@@ -122,6 +136,7 @@ export default function StudentView() {
     fetchStats();
   }, [student, selectedMonth]);
 
+
   // Filter student fee payments
   const studentFeeHistory = React.useMemo(() => {
     if (!student || !feePayments) return [];
@@ -137,9 +152,9 @@ export default function StudentView() {
   // Group fee payments by month and calculate totals, pending, or extra
   const monthlyFeeGroups = React.useMemo(() => {
     if (!studentFeeHistory || studentFeeHistory.length === 0) return [];
-    
+
     const groups = {};
-    
+
     studentFeeHistory.forEach(payment => {
       let monthKey = payment.month;
       if (!monthKey && payment.paymentDate) {
@@ -148,7 +163,7 @@ export default function StudentView() {
         monthKey = String(payment.createdAt).slice(0, 7);
       }
       monthKey = monthKey || 'Unspecified';
-      
+
       if (!groups[monthKey]) {
         groups[monthKey] = {
           monthKey,
@@ -313,6 +328,8 @@ export default function StudentView() {
     }
   };
 
+
+
   const copyCredentials = () => {
     const text = `Login ID: ${student.phone || student.email}\nPassword: ${student.password || 'Not set'}`;
     navigator.clipboard.writeText(text);
@@ -322,39 +339,39 @@ export default function StudentView() {
 
   const renderCalendar = (type = 'tuition') => {
     if (!selectedMonth || !stats || !stats.records) return null;
-    
+
     try {
       const monthDate = parseISO(selectedMonth + '-01');
       const start = startOfMonth(monthDate);
       const end = endOfMonth(monthDate);
       const days = eachDayOfInterval({ start, end });
       const firstDayOfWeek = getDay(start); // 0 = Sunday, 1 = Monday
-      
+
       const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-      
+
       return (
         <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
           <h4 className="text-xs font-semibold text-zinc-500 mb-3 uppercase tracking-wider text-center">Monthly Calendar</h4>
-          
+
           <div className="grid grid-cols-7 gap-1 text-center text-[10px] mb-1">
             {weekdays.map(day => (
               <div key={day} className="text-zinc-400 font-medium py-1">{day}</div>
             ))}
           </div>
-          
+
           <div className="grid grid-cols-7 gap-1 text-center">
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
               <div key={`empty-${i}`} className="p-1"></div>
             ))}
-            
+
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const record = stats.records.find(r => r.date === dateStr);
               const isPast = isBefore(day, startOfToday());
               const dayOfWeekName = format(day, 'EEEE');
-              
+
               let bgColor = "bg-zinc-100 dark:bg-zinc-800/50 text-zinc-400 dark:text-zinc-600";
-              
+
               if (record) {
                 if (type === 'tuition') {
                   if (record.tution_present === 'Present') {
@@ -377,7 +394,7 @@ export default function StudentView() {
                   // Only mark absent if it's a scheduled batch day
                   const batch = batches.find(b => b.id === (student.batchId?._id || student.batchId) || b._id === (student.batchId?._id || student.batchId));
                   const scheduledDays = batch?.schedule?.days || [];
-                  
+
                   if (scheduledDays.includes(dayOfWeekName)) {
                     bgColor = "bg-red-500 text-white font-bold shadow-sm shadow-red-500/20";
                   }
@@ -388,7 +405,7 @@ export default function StudentView() {
                   }
                 }
               }
-              
+
               return (
                 <div key={dateStr} className={`p-1.5 rounded-md text-xs flex items-center justify-center transition-all ${bgColor}`}>
                   {format(day, 'd')}
@@ -396,7 +413,7 @@ export default function StudentView() {
               );
             })}
           </div>
-          
+
           {type === 'tuition' ? (
             <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-sm bg-emerald-500"></div> Present</div>
@@ -418,11 +435,11 @@ export default function StudentView() {
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto pb-20">
-      
+
       {/* Desktop Header */}
       <div className="hidden sm:flex items-center space-x-4 mb-2">
-        <button 
-          onClick={() => navigate('/students')} 
+        <button
+          onClick={() => navigate('/students')}
           className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-500 dark:text-zinc-400 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -481,11 +498,10 @@ export default function StudentView() {
       <div className="grid grid-cols-5 gap-1 sm:gap-2 bg-zinc-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-700/60 shadow-sm overflow-x-auto">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${
-            activeTab === 'profile'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${activeTab === 'profile'
+            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
         >
           <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>Profile</span>
@@ -493,11 +509,10 @@ export default function StudentView() {
 
         <button
           onClick={() => setActiveTab('attendance')}
-          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${
-            activeTab === 'attendance'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${activeTab === 'attendance'
+            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
         >
           <CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>Tuition</span>
@@ -505,11 +520,10 @@ export default function StudentView() {
 
         <button
           onClick={() => setActiveTab('school')}
-          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${
-            activeTab === 'school'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${activeTab === 'school'
+            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
         >
           <School className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>School</span>
@@ -517,11 +531,10 @@ export default function StudentView() {
 
         <button
           onClick={() => setActiveTab('fees')}
-          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${
-            activeTab === 'fees'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${activeTab === 'fees'
+            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
         >
           <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>Fees</span>
@@ -529,11 +542,10 @@ export default function StudentView() {
 
         <button
           onClick={() => setActiveTab('idcard')}
-          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${
-            activeTab === 'idcard'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`py-2 px-1 sm:py-2.5 sm:px-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 ${activeTab === 'idcard'
+            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
         >
           <IdCardIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>ID Card</span>
@@ -545,7 +557,7 @@ export default function StudentView() {
       {/* ========================================================================= */}
       {activeTab === 'profile' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          
+
           {/* App Access Credentials Box */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-800/40 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -578,7 +590,7 @@ export default function StudentView() {
 
           {/* Detailed Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
+
             {/* Academic & Enrollment Info */}
             <Card>
               <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
@@ -653,13 +665,13 @@ export default function StudentView() {
       {/* ========================================================================= */}
       {activeTab === 'attendance' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          
+
           {/* Month Selector Bar */}
           <div className="flex items-center justify-between gap-3 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800">
             <span className="text-sm font-semibold text-zinc-900 dark:text-white">Select Month:</span>
-            <input 
-              type="month" 
-              value={selectedMonth} 
+            <input
+              type="month"
+              value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/20"
             />
@@ -713,8 +725,8 @@ export default function StudentView() {
                   <div className="flex justify-between py-1.5">
                     <span className="text-zinc-500 dark:text-zinc-400">Tuition Attendance Rate</span>
                     <span className="font-bold text-red-500">
-                      {totalTuitionClassesThisMonth > 0 
-                        ? Math.round(((stats.tuitionPresent + stats.tuitionLate) / totalTuitionClassesThisMonth) * 100) 
+                      {totalTuitionClassesThisMonth > 0
+                        ? Math.round(((stats.tuitionPresent + stats.tuitionLate) / totalTuitionClassesThisMonth) * 100)
                         : 0}%
                     </span>
                   </div>
@@ -735,13 +747,13 @@ export default function StudentView() {
       {/* ========================================================================= */}
       {activeTab === 'school' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          
+
           {/* Month Selector Bar */}
           <div className="flex items-center justify-between gap-3 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800">
             <span className="text-sm font-semibold text-zinc-900 dark:text-white">Select Month:</span>
-            <input 
-              type="month" 
-              value={selectedMonth} 
+            <input
+              type="month"
+              value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/20"
             />
@@ -785,8 +797,8 @@ export default function StudentView() {
                   <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
                     <span className="text-zinc-500 dark:text-zinc-400">School Regularity Rate</span>
                     <span className="font-bold text-indigo-500">
-                      {selectedMonth 
-                        ? Math.round((stats.schoolYes / getDaysInMonth(parseISO(selectedMonth + '-01'))) * 100) 
+                      {schoolWorkingDays > 0 && stats?.schoolYes !== undefined
+                        ? Math.round((stats.schoolYes / schoolWorkingDays) * 100)
                         : 0}%
                     </span>
                   </div>
@@ -810,7 +822,7 @@ export default function StudentView() {
       {/* ========================================================================= */}
       {activeTab === 'fees' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          
+
           {/* Fee Overview Card */}
           <Card className="bg-gradient-to-br from-red-500/5 to-rose-500/10 border-red-200 dark:border-red-900/40">
             <CardContent className="p-4 sm:p-6 space-y-4">
@@ -826,11 +838,11 @@ export default function StudentView() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button 
-                    size="sm" 
-                    onClick={() => { 
-                      setPaymentAmount(currentMonthPending > 0 ? String(currentMonthPending) : String(monthlyTuitionFee || '')); 
-                      setIsPayModalOpen(true); 
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setPaymentAmount(currentMonthPending > 0 ? String(currentMonthPending) : String(monthlyTuitionFee || ''));
+                      setIsPayModalOpen(true);
                     }}
                     className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-sm"
                   >
@@ -972,13 +984,13 @@ export default function StudentView() {
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex justify-center">
             {/* Student ID Card Badge */}
-            <div 
-              id="student-id-card" 
+            <div
+              id="student-id-card"
               className="w-full max-w-sm bg-gradient-to-br from-zinc-900 via-zinc-950 to-black text-white rounded-3xl p-6 border-2 border-red-500/30 shadow-2xl relative overflow-hidden"
             >
               {/* Decorative top glow */}
               <div className="absolute top-0 right-0 w-36 h-36 bg-red-600/20 rounded-full blur-2xl pointer-events-none" />
-              
+
               {/* ID Card Header */}
               <div className="text-center pb-4 border-b border-zinc-800">
                 <span className="text-lg font-heading font-black text-red-500 tracking-wider uppercase">
@@ -1043,7 +1055,7 @@ export default function StudentView() {
 
         <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden shadow-sm">
           {/* Call Action */}
-          <button 
+          <button
             onClick={handleCall}
             className="w-full p-4 flex items-center justify-between text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
           >
@@ -1060,7 +1072,7 @@ export default function StudentView() {
           </button>
 
           {/* SMS Action */}
-          <button 
+          <button
             onClick={handleSMS}
             className="w-full p-4 flex items-center justify-between text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
           >
@@ -1077,7 +1089,7 @@ export default function StudentView() {
           </button>
 
           {/* WhatsApp Action */}
-          <button 
+          <button
             onClick={handleWhatsApp}
             className="w-full p-4 flex items-center justify-between text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
           >
@@ -1094,7 +1106,7 @@ export default function StudentView() {
           </button>
 
           {/* Delete Student Action */}
-          <button 
+          <button
             onClick={handleDelete}
             className="w-full p-4 flex items-center justify-between text-left hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-colors group"
           >
@@ -1117,7 +1129,7 @@ export default function StudentView() {
       {/* ========================================================================= */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-          <div 
+          <div
             className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200 max-h-[90vh] overflow-y-auto"
             style={{
               paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))'
@@ -1127,14 +1139,14 @@ export default function StudentView() {
               <X className="h-5 w-5" />
             </button>
             <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">Edit Student Profile</h2>
-            
+
             <form onSubmit={handleSaveEdit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Full Name</label>
-                <input 
+                <input
                   required
-                  type="text" 
-                  value={editFormData.name} 
+                  type="text"
+                  value={editFormData.name}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 />
@@ -1142,10 +1154,10 @@ export default function StudentView() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Phone (Student Login ID)</label>
-                <input 
+                <input
                   required
-                  type="text" 
-                  value={editFormData.phone} 
+                  type="text"
+                  value={editFormData.phone}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 />
@@ -1153,9 +1165,9 @@ export default function StudentView() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">App Login Password</label>
-                <input 
-                  type="text" 
-                  value={editFormData.password} 
+                <input
+                  type="text"
+                  value={editFormData.password}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, password: e.target.value }))}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 />
@@ -1163,9 +1175,9 @@ export default function StudentView() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Monthly Fee (₹)</label>
-                <input 
-                  type="number" 
-                  value={editFormData.fees} 
+                <input
+                  type="number"
+                  value={editFormData.fees}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, fees: e.target.value }))}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 />
@@ -1173,8 +1185,8 @@ export default function StudentView() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Batch</label>
-                <select 
-                  value={editFormData.batchId} 
+                <select
+                  value={editFormData.batchId}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, batchId: e.target.value }))}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 >
@@ -1187,8 +1199,8 @@ export default function StudentView() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Status</label>
-                  <select 
-                    value={editFormData.status} 
+                  <select
+                    value={editFormData.status}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, status: e.target.value }))}
                     className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                   >
@@ -1198,8 +1210,8 @@ export default function StudentView() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fee Status</label>
-                  <select 
-                    value={editFormData.feeStatus} 
+                  <select
+                    value={editFormData.feeStatus}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, feeStatus: e.target.value }))}
                     className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                   >
@@ -1212,9 +1224,9 @@ export default function StudentView() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Parent Name</label>
-                <input 
-                  type="text" 
-                  value={editFormData.parentName} 
+                <input
+                  type="text"
+                  value={editFormData.parentName}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, parentName: e.target.value }))}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 />
@@ -1222,9 +1234,9 @@ export default function StudentView() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">Parent Phone</label>
-                <input 
-                  type="text" 
-                  value={editFormData.parentPhone} 
+                <input
+                  type="text"
+                  value={editFormData.parentPhone}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, parentPhone: e.target.value }))}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500"
                 />
@@ -1246,7 +1258,7 @@ export default function StudentView() {
       {/* ========================================================================= */}
       {isPayModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-          <div 
+          <div
             className="bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200 max-h-[90vh] overflow-y-auto"
             style={{
               paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))'
@@ -1259,13 +1271,13 @@ export default function StudentView() {
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
               Student: <strong className="text-zinc-800 dark:text-zinc-200">{student.name}</strong> ({student.batchName})
             </p>
-            
+
             <form onSubmit={handleRecordPaymentSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Fee Month</label>
-                <input 
-                  type="month" 
-                  value={paymentMonth} 
+                <input
+                  type="month"
+                  value={paymentMonth}
                   onChange={(e) => setPaymentMonth(e.target.value)}
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 text-sm font-medium"
                 />
@@ -1303,11 +1315,11 @@ export default function StudentView() {
                     </button>
                   )}
                 </div>
-                <input 
+                <input
                   required
-                  type="number" 
+                  type="number"
                   min="1"
-                  value={paymentAmount} 
+                  value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   placeholder="Enter installment amount..."
                   className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-zinc-900 dark:text-white focus:outline-none focus:border-red-500 font-bold text-base"

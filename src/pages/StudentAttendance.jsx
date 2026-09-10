@@ -1,27 +1,27 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval, 
-  format, 
-  parseISO, 
-  getDay, 
-  isBefore, 
-  startOfToday 
+import {
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  format,
+  parseISO,
+  getDay,
+  isBefore,
+  startOfToday
 } from 'date-fns';
 import { studentApi } from '../lib/api';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { 
-  CheckSquare, 
-  AlertCircle, 
-  Calendar, 
+import {
+  CheckSquare,
+  AlertCircle,
+  Calendar,
   CalendarDays,
-  Check, 
-  X, 
-  Clock, 
-  Building, 
+  Check,
+  X,
+  Clock,
+  Building,
   School,
   ArrowLeft,
   CalendarCheck,
@@ -34,10 +34,10 @@ export default function StudentAttendance() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTuitionId = searchParams.get('tuitionId');
-  
+
   // Selected Month (defaults to current month YYYY-MM)
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [attendanceType, setAttendanceType] = useState('tuition'); // 'tuition' | 'school'
@@ -46,7 +46,7 @@ export default function StudentAttendance() {
     const fetchDashboard = async () => {
       try {
         setLoading(true);
-        const url = selectedTuitionId 
+        const url = selectedTuitionId
           ? `/student-auth/dashboard?tuitionId=${selectedTuitionId}`
           : `/student-auth/dashboard`;
         const response = await studentApi.get(url);
@@ -78,6 +78,17 @@ export default function StudentAttendance() {
     });
   }, [allRecords, selectedMonth]);
 
+  function sundayCount(year, month) {
+    const totaldays = new Date(year, month, 0).getDate();
+    let sundays = 0;
+    for (let day = 1; day <= totaldays; day++) {
+      const date = new Date(year, month - 1, day);
+      if (date.getDay() === 0) {
+        sundays++;
+      }
+    }
+    return sundays;
+  }
   // Compute monthly stats
   const monthlyStats = useMemo(() => {
     let tuitionPresent = 0;
@@ -85,6 +96,7 @@ export default function StudentAttendance() {
     let tuitionLate = 0;
     let schoolYes = 0;
     let schoolNo = 0;
+
 
     monthlyRecords.forEach(r => {
       const tStatus = r.tution_present || r.status || '';
@@ -100,7 +112,12 @@ export default function StudentAttendance() {
     const totalTuitionClasses = tuitionPresent + tuitionAbsent + tuitionLate;
     const totalAttended = tuitionPresent + tuitionLate;
     const tuitionRate = totalTuitionClasses > 0 ? Math.round((totalAttended / totalTuitionClasses) * 100) : 0;
-    const totalSchoolDays = schoolYes + schoolNo;
+
+    const [year, month] = (selectedMonth || new Date().toISOString().slice(0, 7)).split('-').map(Number);
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+    const totalSundays = sundayCount(year, month);
+    const totalSchoolDays = Math.max(1, totalDaysInMonth - totalSundays);
+
     const schoolRate = totalSchoolDays > 0 ? Math.round((schoolYes / totalSchoolDays) * 100) : 0;
 
     return {
@@ -115,47 +132,47 @@ export default function StudentAttendance() {
       totalSchoolDays,
       schoolRate
     };
-  }, [monthlyRecords]);
+  }, [monthlyRecords, selectedMonth]);
 
   // Render the interactive monthly calendar
   const renderCalendar = (type = 'tuition') => {
     if (!selectedMonth) return null;
-    
+
     try {
       const monthDate = parseISO(selectedMonth + '-01');
       const start = startOfMonth(monthDate);
       const end = endOfMonth(monthDate);
       const days = eachDayOfInterval({ start, end });
       const firstDayOfWeek = getDay(start); // 0 = Sunday, 1 = Monday
-      
+
       const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-      
+
       return (
         <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
           <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-3 uppercase tracking-wider text-center">
             MONTHLY CALENDAR
           </h4>
-          
+
           <div className="grid grid-cols-7 gap-1.5 text-center text-xs mb-1">
             {weekdays.map(day => (
               <div key={day} className="text-zinc-400 font-bold py-1">{day}</div>
             ))}
           </div>
-          
+
           <div className="grid grid-cols-7 gap-1.5 text-center">
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
               <div key={`empty-${i}`} className="p-2"></div>
             ))}
-            
+
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const record = monthlyRecords.find(r => {
                 const rDateStr = typeof r.date === 'string' ? r.date.split('T')[0] : format(new Date(r.date), 'yyyy-MM-dd');
                 return rDateStr === dateStr;
               });
-              
+
               let bgColor = "bg-zinc-100 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400";
-              
+
               if (record) {
                 if (type === 'tuition') {
                   const status = (record.tution_present || record.status || '').toLowerCase();
@@ -175,10 +192,10 @@ export default function StudentAttendance() {
                   }
                 }
               }
-              
+
               return (
-                <div 
-                  key={dateStr} 
+                <div
+                  key={dateStr}
                   className={`p-2.5 rounded-xl text-xs flex items-center justify-center transition-all ${bgColor}`}
                   title={`${dateStr}: ${record ? (record.tution_present || record.status || 'Marked') : 'No Record'}`}
                 >
@@ -187,7 +204,7 @@ export default function StudentAttendance() {
               );
             })}
           </div>
-          
+
           {type === 'tuition' ? (
             <div className="flex items-center justify-center gap-4 mt-5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Present</div>
@@ -223,8 +240,8 @@ export default function StudentAttendance() {
           <AlertCircle className="w-14 h-14 mx-auto mb-4 text-red-500 opacity-80" />
           <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Error Loading Attendance</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">{error || 'Something went wrong.'}</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors"
           >
             Try Again
@@ -238,7 +255,7 @@ export default function StudentAttendance() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-4xl mx-auto space-y-6 font-sans">
-      
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -275,11 +292,10 @@ export default function StudentAttendance() {
                 key={t.id}
                 onClick={() => handleSelectTuition(t.id)}
                 type="button"
-                className={`px-4 py-2 rounded-xl text-xs font-bold flex-shrink-0 transition-all ${
-                  isActive
-                    ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
-                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-red-300'
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex-shrink-0 transition-all ${isActive
+                  ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-red-300'
+                  }`}
               >
                 {t.name}
               </button>
@@ -291,9 +307,9 @@ export default function StudentAttendance() {
       {/* Month Selector Bar (Matching reference design) */}
       <div className="flex items-center justify-between gap-3 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm">
         <span className="text-sm font-bold text-zinc-900 dark:text-white">Select Month:</span>
-        <input 
-          type="month" 
-          value={selectedMonth} 
+        <input
+          type="month"
+          value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
           className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3.5 py-1.5 text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 cursor-pointer"
         />
@@ -303,11 +319,10 @@ export default function StudentAttendance() {
       <div className="grid grid-cols-2 gap-2 bg-zinc-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-700/60 shadow-sm">
         <button
           onClick={() => setAttendanceType('tuition')}
-          className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-            attendanceType === 'tuition'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${attendanceType === 'tuition'
+            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
         >
           <CalendarDays className="w-4 h-4" />
           <span>Tuition Attendance</span>
@@ -315,11 +330,10 @@ export default function StudentAttendance() {
 
         <button
           onClick={() => setAttendanceType('school')}
-          className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-            attendanceType === 'school'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${attendanceType === 'school'
+            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
+            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+            }`}
         >
           <School className="w-4 h-4" />
           <span>School Attendance</span>
@@ -367,12 +381,12 @@ export default function StudentAttendance() {
                 <span className="text-zinc-500 dark:text-zinc-400 font-medium">Total Tuition Classes Scheduled</span>
                 <span className="font-bold text-zinc-900 dark:text-white">{monthlyStats.totalTuitionClasses} Classes</span>
               </div>
-              
+
               <div className="flex justify-between items-center py-1.5 border-b border-zinc-100 dark:border-zinc-800/60">
                 <span className="text-zinc-500 dark:text-zinc-400 font-medium">Classes Attended</span>
                 <span className="font-bold text-emerald-500">{monthlyStats.totalAttended} Classes</span>
               </div>
-              
+
               <div className="flex justify-between items-center py-1.5">
                 <span className="text-zinc-500 dark:text-zinc-400 font-medium">Tuition Attendance Rate</span>
                 <span className="font-extrabold text-red-500 text-base">
@@ -419,7 +433,7 @@ export default function StudentAttendance() {
                 <span className="text-zinc-500 dark:text-zinc-400 font-medium">Total Marked Days</span>
                 <span className="font-bold text-zinc-900 dark:text-white">{monthlyStats.totalSchoolDays} Days</span>
               </div>
-              
+
               <div className="flex justify-between items-center py-1.5">
                 <span className="text-zinc-500 dark:text-zinc-400 font-medium">School Regularity Rate</span>
                 <span className="font-extrabold text-indigo-500 text-base">

@@ -555,32 +555,29 @@ export default function StudentView() {
       {activeTab === 'profile' && (
         <div className="space-y-4 animate-in fade-in duration-200">
 
-          {/* App Access Credentials Box */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-800/40 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
+          {/* App Access Credentials Box - Compact */}
+          <div className="bg-zinc-50 dark:bg-[#0a0d15] border border-zinc-200/70 dark:border-zinc-800/80 rounded-[20px] p-3.5 shadow-sm relative overflow-hidden">
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-blue-500 text-white shadow-sm">
+                <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500">
                   <Key className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-blue-950 dark:text-blue-100">Student App Login Credentials</h3>
-                  <p className="text-xs text-blue-600 dark:text-blue-400">Use these details for the student/parent mobile login</p>
-                </div>
+                <h3 className="text-xs font-bold text-zinc-900 dark:text-white">App Login Credentials</h3>
               </div>
-              <Button size="sm" variant="outline" onClick={copyCredentials} className="text-xs h-8 flex items-center gap-1 border-blue-200 dark:border-blue-800 bg-white/80 dark:bg-zinc-900/80">
-                {copiedKey ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-blue-500" />}
+              <Button size="sm" variant="ghost" onClick={copyCredentials} className="text-[11px] h-7 px-2 flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
+                {copiedKey ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
                 <span>{copiedKey ? 'Copied' : 'Copy'}</span>
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-              <div className="bg-white/90 dark:bg-zinc-900/80 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40">
-                <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Login ID (Phone/Email)</p>
-                <p className="text-sm font-mono font-bold text-zinc-900 dark:text-white mt-0.5">{student.phone || student.email || 'N/A'}</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1 bg-white dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Login ID</span>
+                <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white">{student.phone || student.email || 'N/A'}</span>
               </div>
-              <div className="bg-white/90 dark:bg-zinc-900/80 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40">
-                <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Password</p>
-                <p className="text-sm font-mono font-bold text-zinc-900 dark:text-white mt-0.5">{student.password || 'Not set'}</p>
+              <div className="flex-1 bg-white dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Password</span>
+                <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white">{student.password || 'Not set'}</span>
               </div>
             </div>
           </div>
@@ -858,7 +855,7 @@ export default function StudentView() {
                   </p>
                 </div>
 
-                <div className="bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
+                <div className="hidden sm:block bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
                   <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Next Due Date</p>
                   <p className="text-base font-bold text-red-600 dark:text-red-400 mt-1">
                     {billingCycle?.nextDueDateFormatted}
@@ -868,7 +865,7 @@ export default function StudentView() {
                   </p>
                 </div>
 
-                <div className="bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
+                <div className="hidden sm:block bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
                   <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Total All-Time Collected</p>
                   <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                     ₹{totalAllTimePaid.toLocaleString()}
@@ -910,14 +907,14 @@ export default function StudentView() {
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-base font-bold text-zinc-900 dark:text-white">
-                                Month: {group.monthKey}
+                                Month: {format(new Date(group.monthKey + '-01'), 'MMMM yyyy')}
                               </span>
                               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                                 (Tuition Fee: ₹{monthlyTuitionFee})
                               </span>
                             </div>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                              Sum of money paid this month: <strong className="text-zinc-900 dark:text-white text-sm font-bold">₹{group.totalPaid}</strong>
+                              Total Paid: <strong className="text-zinc-900 dark:text-white text-sm font-bold">₹{group.totalPaid}</strong>
                             </p>
                           </div>
 
@@ -929,7 +926,7 @@ export default function StudentView() {
                             )}
                             {isPending && (
                               <Badge variant="warning" className="px-3 py-1 font-bold">
-                                ₹{group.balanceAmount} Pending
+                                ₹{group.balanceAmount} Remaining
                               </Badge>
                             )}
                             {isPaidFull && (

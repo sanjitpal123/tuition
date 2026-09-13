@@ -200,11 +200,11 @@ export function DashboardLayout() {
               paddingTop: 'env(safe-area-inset-top, 0px)' 
             }}
           >
-            <div className="flex items-center w-1/2">
-              <span className="text-xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight text-red-500 truncate w-full">
-                {currentUser.tuitionName || "Setupclass"}
-              </span>
-            </div>
+              <div className="flex items-center w-1/2">
+                <span className="text-xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight truncate w-full">
+                  {getPageTitle(location.pathname)}
+                </span>
+              </div>
 
             <div className="flex-1 flex justify-end px-4 md:px-0 max-w-4xl w-full mx-auto md:max-w-none">
               <div className="ml-4 flex items-center md:ml-6 space-x-3">

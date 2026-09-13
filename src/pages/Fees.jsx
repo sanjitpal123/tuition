@@ -51,6 +51,9 @@ export default function Fees() {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false);
+  const [editingPaymentStudent, setEditingPaymentStudent] = useState(null);
+  const [editPaymentAmount, setEditPaymentAmount] = useState('');
 
   const unreadNotificationsCount = realNotifications?.filter(n => !n.read)?.length || 0;
 
@@ -78,29 +81,7 @@ export default function Fees() {
         const joinDateStr = s.admissionDate || s.joiningDate || s.createdAt;
         if (!joinDateStr) return true; // If no date, include them
         
-        let joinDate;
-        let normalizedDateStr = typeof joinDateStr === 'string' ? joinDateStr.replace(/\//g, '-') : joinDateStr;
-        
-        if (typeof normalizedDateStr === 'string' && normalizedDateStr.includes('-')) {
-            const parts = normalizedDateStr.split('-');
-            if (parts.length === 3 && parts[2].length === 4) {
-                // It ends with YYYY. Let's check MM vs DD
-                const p0 = Number(parts[0]);
-                const p1 = Number(parts[1]);
-                if (p1 > 12) {
-                    // MM-DD-YYYY
-                    joinDate = new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
-                } else {
-                    // DD-MM-YYYY (defaulting to this if ambiguous)
-                    joinDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
-                }
-            } else {
-                joinDate = new Date(normalizedDateStr);
-            }
-        } else {
-            joinDate = new Date(normalizedDateStr);
-        }
-        
+        const joinDate = new Date(joinDateStr);
         if (isNaN(joinDate.getTime())) return true; // Invalid date
         
         const selectedDateObj = new Date(selectedMonth + "-01");
@@ -254,6 +235,27 @@ export default function Fees() {
       alert("Failed to record payment.");
     } finally {
       setIsSubmittingPayment(false);
+    }
+  };
+
+  const handleEditPaymentClick = (student) => {
+    setEditingPaymentStudent(student);
+    setEditPaymentAmount(student.totalPaidThisMonth > 0 ? String(student.totalPaidThisMonth) : '');
+    setIsEditPaymentModalOpen(true);
+  };
+
+  const submitEditPayment = async (e) => {
+    e.preventDefault();
+    if (!editingPaymentStudent || !editPaymentAmount) return;
+    try {
+      setIsSubmittingEdit(true);
+      await updateFeePayment(editingPaymentStudent.id, selectedMonth, Number(editPaymentAmount));
+      setIsEditPaymentModalOpen(false);
+      setEditingPaymentStudent(null);
+    } catch (err) {
+      alert("Failed to edit payment.");
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -514,10 +516,6 @@ export default function Fees() {
                         <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 flex-wrap">
                           <Calendar className="w-3 h-3 text-red-500" />
                           <span>Joined: {student.billingCycle?.admissionDateFormatted || dateStr}</span>
-                          <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                          <span className="font-semibold text-zinc-600 dark:text-zinc-300">
-                            Next Due: {student.billingCycle?.nextDueDateFormatted}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -1039,6 +1037,49 @@ export default function Fees() {
                   {isDeleting ? 'Deleting...' : 'Delete'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Payment Modal */}
+      {isEditPaymentModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#0a0a0a] rounded-2xl w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <div className="p-6 relative">
+              <button 
+                onClick={() => setIsEditPaymentModalOpen(false)}
+                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full p-1.5"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Edit Total Payment</h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                Update the total amount paid by {editingPaymentStudent?.name} for {new Date(selectedMonth + '-01').toLocaleString('default', { month: 'long', year: 'numeric' })}. This will overwrite existing installments.
+              </p>
+              
+              <form onSubmit={submitEditPayment} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Total Paid Amount (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={editPaymentAmount}
+                    onChange={e => setEditPaymentAmount(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setIsEditPaymentModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmittingEdit} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white border-none shadow-md disabled:opacity-50">
+                    {isSubmittingEdit ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

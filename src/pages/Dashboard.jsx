@@ -709,16 +709,16 @@ export default function Dashboard() {
       <div className="hidden md:block space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight">
-            Good morning, {firstName} 👋
-          </h1>
+            <h1 className="text-3xl font-heading font-bold text-zinc-900 dark:text-white tracking-tight">
+              Welcome back, {firstName} 👋
+            </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Here's what's happening with your tuition today.
           </p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
           <div
             onClick={() => navigate("/students")}
             className="cursor-pointer transition-transform hover:scale-105"
@@ -754,7 +754,7 @@ export default function Dashboard() {
           </div>
           <div
             onClick={() => navigate("/attendance")}
-            className="cursor-pointer transition-transform hover:scale-105"
+            className="cursor-pointer transition-transform hover:scale-105 lg:hidden"
           >
             <StatCard
               title="Attendance"

@@ -403,32 +403,6 @@ export default function Students() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[11px] font-bold">
                           {student.batchName || 'General'}
                         </span>
-
-                        {/* Fee Badge */}
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-extrabold border ${
-                          cycleInfo?.status === 'Pending'
-                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                            : cycleInfo?.status === 'Extra'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                            : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                        }`}>
-                          {cycleInfo?.status === 'Pending' ? (
-                            <>
-                              <Clock className="w-3 h-3" />
-                              <span>₹{cycleInfo.remainingAmount} Due</span>
-                            </>
-                          ) : cycleInfo?.status === 'Extra' ? (
-                            <>
-                              <Sparkles className="w-3 h-3" />
-                              <span>+₹{cycleInfo.extraAmount} Extra</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Paid</span>
-                            </>
-                          )}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -440,18 +414,10 @@ export default function Students() {
                 </div>
 
                 {/* Quick Info Strip */}
-                <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-zinc-50 dark:bg-[#0c0f18] rounded-xl border border-zinc-200/50 dark:border-zinc-800/60 text-center">
+                <div className="grid grid-cols-1 gap-2 py-2 px-3 bg-zinc-50 dark:bg-[#0c0f18] rounded-xl border border-zinc-200/50 dark:border-zinc-800/60 text-center">
                   <div>
                     <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Monthly Fee</span>
                     <span className="text-xs font-extrabold text-zinc-900 dark:text-white">₹{student.monthlyFee || student.fees || 0}</span>
-                  </div>
-                  <div className="border-x border-zinc-200/60 dark:border-zinc-800/60">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Attendance</span>
-                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{student.attendance || 100}%</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Next Due</span>
-                    <span className="text-xs font-extrabold text-red-600 dark:text-red-400 truncate block">{cycleInfo?.nextDueDateFormatted || 'N/A'}</span>
                   </div>
                 </div>
 
@@ -598,8 +564,6 @@ export default function Students() {
                 <TableHead>Student</TableHead>
                 <TableHead>Batch</TableHead>
                 <TableHead>Phone / Login ID</TableHead>
-                <TableHead>Fee Status</TableHead>
-                <TableHead>Attendance</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -624,14 +588,6 @@ export default function Students() {
                   </TableCell>
                   <TableCell>
                     <span className="font-mono text-xs">{student.phone || 'N/A'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={cycleInfo?.badgeVariant || 'warning'}>
-                      {cycleInfo?.status === 'Extra' ? `+₹${cycleInfo.extraAmount} Extra` : (cycleInfo?.status || 'Pending')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-bold text-emerald-500">{student.attendance || 100}%</span>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">

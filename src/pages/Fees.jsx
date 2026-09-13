@@ -72,8 +72,52 @@ export default function Fees() {
 
   // Compute fee statuses for the selected month
   const studentStatuses = useMemo(() => {
-    return students.map(s => {
-      const sId = s._id || s.id;
+    return students
+      .filter(s => {
+        // Find if student's admission date is after the selected month
+        const joinDateStr = s.admissionDate || s.joiningDate || s.createdAt;
+        if (!joinDateStr) return true; // If no date, include them
+        
+        let joinDate;
+        let normalizedDateStr = typeof joinDateStr === 'string' ? joinDateStr.replace(/\//g, '-') : joinDateStr;
+        
+        if (typeof normalizedDateStr === 'string' && normalizedDateStr.includes('-')) {
+            const parts = normalizedDateStr.split('-');
+            if (parts.length === 3 && parts[2].length === 4) {
+                // It ends with YYYY. Let's check MM vs DD
+                const p0 = Number(parts[0]);
+                const p1 = Number(parts[1]);
+                if (p1 > 12) {
+                    // MM-DD-YYYY
+                    joinDate = new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`);
+                } else {
+                    // DD-MM-YYYY (defaulting to this if ambiguous)
+                    joinDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+                }
+            } else {
+                joinDate = new Date(normalizedDateStr);
+            }
+        } else {
+            joinDate = new Date(normalizedDateStr);
+        }
+        
+        if (isNaN(joinDate.getTime())) return true; // Invalid date
+        
+        const selectedDateObj = new Date(selectedMonth + "-01");
+        if (isNaN(selectedDateObj.getTime())) return true;
+        
+        const joinYear = joinDate.getFullYear();
+        const joinMonth = joinDate.getMonth();
+        const selYear = selectedDateObj.getFullYear();
+        const selMonth = selectedDateObj.getMonth();
+        
+        if (joinYear > selYear) return false;
+        if (joinYear === selYear && joinMonth > selMonth) return false;
+        
+        return true;
+      })
+      .map(s => {
+        const sId = s._id || s.id;
       const monthlyFee = Number(s.monthlyFee || s.fees || 0);
       const billingCycle = getStudentBillingCycle(s, feePayments);
 

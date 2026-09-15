@@ -23,7 +23,6 @@ import { FeeSummaryCards } from '../components/fees/FeeSummaryCards';
 import { FeeStudentCard } from '../components/fees/FeeStudentCard';
 import { PaidStudentCard } from '../components/fees/PaidStudentCard';
 import { CollectPaymentModal } from '../components/fees/CollectPaymentModal';
-import { getStudentBillingCycle } from '../lib/feeCycles';
 
 export default function Fees() {
   const navigate = useNavigate();
@@ -32,9 +31,7 @@ export default function Fees() {
     students,
     feePayments,
     recordFeePayment,
-    updateStudent,
     deleteFeePayment,
-    updateFeePayment,
     realNotifications,
     isLoading,
   } = useData();
@@ -210,7 +207,7 @@ export default function Fees() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto pb-28 md:pb-8">
+    <div className="max-w-7xl mx-auto pb-28 md:pb-8">
 
       {/* ===================== MOBILE HEADER ===================== */}
       <div className="md:hidden flex items-center justify-between pt-1 mb-4">
@@ -373,9 +370,9 @@ export default function Fees() {
       </div>
 
       {/* ===================== STUDENT LIST ===================== */}
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 space-y-2 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
         {displayedStudents.length === 0 ? (
-          <div className="text-center py-16 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-zinc-200/50 dark:border-white/5">
+          <div className="text-center py-16 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-zinc-200/50 dark:border-white/5 lg:col-span-2">
             {activeTab === 'pending' ? (
               <div>
                 <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-3">

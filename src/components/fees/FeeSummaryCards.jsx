@@ -1,5 +1,6 @@
 import React from "react";
 import { CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function FeeSummaryCards({
   collected,
@@ -9,6 +10,10 @@ export function FeeSummaryCards({
   overdueCount = 0,
   totalStudents = 0,
 }) {
+  const navigator = useNavigate();
+  function handleNavigate() {
+    navigator("/overduestudents");
+  }
   return (
     <div className="gap-3 sm:gap-4">
       {/* Collected & Pending Card */}
@@ -50,7 +55,10 @@ export function FeeSummaryCards({
       </div>
 
       {/* Overdue Card */}
-      <div className="bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-red-500/30 dark:border-red-500/20 shadow-md shadow-black/5 dark:shadow-black/40 p-4 sm:p-5">
+      <div
+        className="bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-red-500/30 dark:border-red-500/20 shadow-md shadow-black/5 dark:shadow-black/40 p-4 sm:p-5"
+        onClick={() => handleNavigate()}
+      >
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
             <AlertTriangle className="w-4 h-4 text-red-500" />

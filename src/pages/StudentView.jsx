@@ -57,6 +57,11 @@ export default function StudentView() {
   const currentUser = JSON.parse(localStorage.getItem('tutorProfile') || '{"tuitionName":"Setupclass"}');
   const student = students.find(s => s.id === id || s._id === id);
 
+  useEffect(() => {
+    console.log("All Students List:", students);
+    console.log("Current Student View Data:", student);
+  }, [students, student]);
+
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'attendance' | 'fees' | 'idcard'
   const [stats, setStats] = useState(null);
   const [isStatsLoading, setIsStatsLoading] = useState(true);

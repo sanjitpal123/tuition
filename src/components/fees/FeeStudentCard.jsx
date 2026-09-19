@@ -32,8 +32,10 @@ export function FeeStudentCard({ student, onCollect, isSubmitting }) {
           {student.batchName || 'General'}
         </p>
         {isPartial && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium">
-            ₹{student.totalPaidThisMonth} paid · ₹{remaining} left
+          <p className="text-[11px] mt-0.5 font-medium flex items-center gap-1 flex-wrap">
+            <span className="text-emerald-600 dark:text-emerald-400">₹{student.totalPaidThisMonth} paid</span>
+            <span className="text-zinc-400 dark:text-zinc-500">·</span>
+            <span className="text-red-600 dark:text-red-400">₹{remaining} left</span>
           </p>
         )}
       </div>

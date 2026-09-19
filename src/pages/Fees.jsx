@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useData } from '../context/DataContext';
-import { useTheme } from '../context/ThemeContext';
-import { format } from 'date-fns';
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useData } from "../context/DataContext";
+import { useTheme } from "../context/ThemeContext";
+import { format } from "date-fns";
 import {
   ArrowLeft,
   Sun,
@@ -16,13 +16,13 @@ import {
   X,
   Trash2,
   Check,
-} from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { FeesSkeleton } from '../components/ui/Skeleton';
-import { FeeSummaryCards } from '../components/fees/FeeSummaryCards';
-import { FeeStudentCard } from '../components/fees/FeeStudentCard';
-import { PaidStudentCard } from '../components/fees/PaidStudentCard';
-import { CollectPaymentModal } from '../components/fees/CollectPaymentModal';
+} from "lucide-react";
+import { Button } from "../components/ui/Button";
+import { FeesSkeleton } from "../components/ui/Skeleton";
+import { FeeSummaryCards } from "../components/fees/FeeSummaryCards";
+import { FeeStudentCard } from "../components/fees/FeeStudentCard";
+import { PaidStudentCard } from "../components/fees/PaidStudentCard";
+import { CollectPaymentModal } from "../components/fees/CollectPaymentModal";
 
 export default function Fees() {
   const navigate = useNavigate();
@@ -34,13 +34,16 @@ export default function Fees() {
     deleteFeePayment,
     realNotifications,
     isLoading,
+    unpaidStudents: overdueStudentsList,
   } = useData();
 
   // UI State
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'paid'
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [selectedBatch, setSelectedBatch] = useState('All');
+  const [activeTab, setActiveTab] = useState("pending");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7),
+  );
+  const [selectedBatch, setSelectedBatch] = useState("All");
 
   // Modal State
   const [collectingStudent, setCollectingStudent] = useState(null);
@@ -50,7 +53,8 @@ export default function Fees() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const unreadNotificationsCount = realNotifications?.filter(n => !n.read)?.length || 0;
+  const unreadNotificationsCount =
+    realNotifications?.filter((n) => !n.read)?.length || 0;
 
   // Month options (12 months back + 3 forward)
   const monthOptions = useMemo(() => {
@@ -59,8 +63,8 @@ export default function Fees() {
     d.setMonth(d.getMonth() + 3);
     for (let i = 0; i < 15; i++) {
       options.push({
-        value: format(d, 'yyyy-MM'),
-        label: format(d, 'MMMM yyyy'),
+        value: format(d, "yyyy-MM"),
+        label: format(d, "MMMM yyyy"),
       });
       d.setMonth(d.getMonth() - 1);
     }
@@ -69,32 +73,38 @@ export default function Fees() {
 
   // Batch options
   const batchOptions = useMemo(() => {
-    const batches = new Set(students.map(s => s.batchName).filter(Boolean));
-    return ['All', ...Array.from(batches)].sort();
+    const batches = new Set(students.map((s) => s.batchName).filter(Boolean));
+    return ["All", ...Array.from(batches)].sort();
   }, [students]);
 
   // Compute fee statuses
   const studentStatuses = useMemo(() => {
     return students
-      .filter(s => {
-        if (selectedBatch !== 'All' && s.batchName !== selectedBatch) return false;
+      .filter((s) => {
+        if (selectedBatch !== "All" && s.batchName !== selectedBatch)
+          return false;
 
         const joinDateStr = s.admissionDate || s.joiningDate || s.createdAt;
         if (!joinDateStr) return true;
         const joinDate = new Date(joinDateStr);
         if (isNaN(joinDate.getTime())) return true;
-        const selectedDateObj = new Date(selectedMonth + '-01');
+        const selectedDateObj = new Date(selectedMonth + "-01");
         if (isNaN(selectedDateObj.getTime())) return true;
-        if (joinDate.getFullYear() > selectedDateObj.getFullYear()) return false;
-        if (joinDate.getFullYear() === selectedDateObj.getFullYear() && joinDate.getMonth() > selectedDateObj.getMonth()) return false;
+        if (joinDate.getFullYear() > selectedDateObj.getFullYear())
+          return false;
+        if (
+          joinDate.getFullYear() === selectedDateObj.getFullYear() &&
+          joinDate.getMonth() > selectedDateObj.getMonth()
+        )
+          return false;
         return true;
       })
-      .map(s => {
+      .map((s) => {
         const sId = s._id || s.id;
         const monthlyFee = Number(s.monthlyFee || s.fees || 0);
 
         const totalPaidThisMonth = feePayments
-          .filter(p => {
+          .filter((p) => {
             const pStudentId = p.studentId?._id || p.studentId;
             return pStudentId === sId && p.month === selectedMonth;
           })
@@ -103,11 +113,11 @@ export default function Fees() {
         const remainingBalance = Math.max(0, monthlyFee - totalPaidThisMonth);
         const extraPaid = Math.max(0, totalPaidThisMonth - monthlyFee);
 
-        let computedFeeStatus = 'Pending';
+        let computedFeeStatus = "Pending";
         if (monthlyFee > 0 && totalPaidThisMonth >= monthlyFee) {
-          computedFeeStatus = extraPaid > 0 ? 'Extra' : 'Paid';
+          computedFeeStatus = extraPaid > 0 ? "Extra" : "Paid";
         } else if (totalPaidThisMonth > 0) {
-          computedFeeStatus = 'Partial';
+          computedFeeStatus = "Partial";
         }
 
         return {
@@ -123,20 +133,28 @@ export default function Fees() {
 
   // Split into paid and unpaid
   const paidStudents = useMemo(
-    () => studentStatuses.filter(s => s.computedFeeStatus === 'Paid' || s.computedFeeStatus === 'Extra'),
-    [studentStatuses]
+    () =>
+      studentStatuses.filter(
+        (s) =>
+          s.computedFeeStatus === "Paid" || s.computedFeeStatus === "Extra",
+      ),
+    [studentStatuses],
   );
 
   const unpaidStudents = useMemo(
-    () => studentStatuses.filter(s => s.computedFeeStatus !== 'Paid' && s.computedFeeStatus !== 'Extra'),
-    [studentStatuses]
+    () =>
+      studentStatuses.filter(
+        (s) =>
+          s.computedFeeStatus !== "Paid" && s.computedFeeStatus !== "Extra",
+      ),
+    [studentStatuses],
   );
 
   // Stats
   const stats = useMemo(() => {
     let collected = 0;
     let pending = 0;
-    studentStatuses.forEach(s => {
+    studentStatuses.forEach((s) => {
       collected += s.totalPaidThisMonth || 0;
       pending += s.remainingBalance || 0;
     });
@@ -147,21 +165,29 @@ export default function Fees() {
   const filterBySearch = (list) => {
     if (!searchTerm.trim()) return list;
     const term = searchTerm.toLowerCase();
-    return list.filter(s =>
-      s.name.toLowerCase().includes(term) ||
-      (s.batchName && s.batchName.toLowerCase().includes(term)) ||
-      (s.phone && s.phone.includes(term))
+    return list.filter(
+      (s) =>
+        s.name.toLowerCase().includes(term) ||
+        (s.batchName && s.batchName.toLowerCase().includes(term)) ||
+        (s.phone && s.phone.includes(term)),
     );
   };
 
-  const displayedStudents = filterBySearch(activeTab === 'pending' ? unpaidStudents : paidStudents);
+  const displayedStudents = filterBySearch(
+    activeTab === "pending" ? unpaidStudents : paidStudents,
+  );
 
   // Handlers
   const handleCollect = (student) => {
     setCollectingStudent(student);
   };
 
-  const handleConfirmPayment = async ({ studentId, amount, paymentMode, note }) => {
+  const handleConfirmPayment = async ({
+    studentId,
+    amount,
+    paymentMode,
+    note,
+  }) => {
     try {
       setIsSubmitting(true);
       await recordFeePayment({
@@ -174,7 +200,7 @@ export default function Fees() {
       });
       setCollectingStudent(null);
     } catch (err) {
-      alert('Failed to record payment.');
+      alert("Failed to record payment.");
     } finally {
       setIsSubmitting(false);
     }
@@ -188,10 +214,13 @@ export default function Fees() {
     if (!deleteTarget) return;
     try {
       setIsDeleting(true);
-      await deleteFeePayment(deleteTarget.id || deleteTarget._id, selectedMonth);
+      await deleteFeePayment(
+        deleteTarget.id || deleteTarget._id,
+        selectedMonth,
+      );
       setDeleteTarget(null);
     } catch (err) {
-      alert('Failed to delete payment.');
+      alert("Failed to delete payment.");
     } finally {
       setIsDeleting(false);
     }
@@ -208,13 +237,12 @@ export default function Fees() {
 
   return (
     <div className="max-w-7xl mx-auto pb-28 md:pb-8">
-
       {/* ===================== MOBILE HEADER ===================== */}
       <div className="md:hidden flex items-center justify-between pt-1 mb-4">
         <div className="flex items-center space-x-3">
           <button
             type="button"
-            onClick={() => navigate('/dashboard', { replace: true })}
+            onClick={() => navigate("/dashboard", { replace: true })}
             className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-white shadow-sm active:scale-95 transition-all"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -234,7 +262,7 @@ export default function Fees() {
             onClick={toggleTheme}
             className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center shadow-sm active:scale-95 transition-all"
           >
-            {theme === 'dark' ? (
+            {theme === "dark" ? (
               <Sun className="w-4.5 h-4.5 text-amber-400" />
             ) : (
               <Moon className="w-4.5 h-4.5 text-zinc-700" />
@@ -242,7 +270,7 @@ export default function Fees() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/notifications')}
+            onClick={() => navigate("/notifications")}
             className="relative w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-[#101420] border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center shadow-sm active:scale-95 transition-all"
           >
             <Bell className="w-4.5 h-4.5 text-zinc-700 dark:text-zinc-300 stroke-[2]" />
@@ -277,6 +305,8 @@ export default function Fees() {
         pending={stats.pending}
         paidCount={paidStudents.length}
         pendingCount={unpaidStudents.length}
+        overdueCount={overdueStudentsList?.length || 0}
+        totalStudents={students?.length || 0}
       />
 
       {/* ===================== FILTERS ROW ===================== */}
@@ -286,7 +316,7 @@ export default function Fees() {
           <div className="flex items-center gap-2 bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-700/50 rounded-xl px-3 py-2 shadow-sm">
             <Calendar className="w-3.5 h-3.5 text-zinc-400" />
             <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-200">
-              {format(new Date(selectedMonth + '-01'), 'MMM yyyy')}
+              {format(new Date(selectedMonth + "-01"), "MMM yyyy")}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
           </div>
@@ -295,8 +325,10 @@ export default function Fees() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           >
-            {monthOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
         </div>
@@ -306,7 +338,7 @@ export default function Fees() {
           <div className="flex items-center gap-2 bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-700/50 rounded-xl px-3 py-2 shadow-sm">
             <Filter className="w-3.5 h-3.5 text-zinc-400" />
             <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-200">
-              {selectedBatch === 'All' ? 'All Batches' : selectedBatch}
+              {selectedBatch === "All" ? "All Batches" : selectedBatch}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
           </div>
@@ -315,9 +347,9 @@ export default function Fees() {
             onChange={(e) => setSelectedBatch(e.target.value)}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           >
-            {batchOptions.map(batch => (
+            {batchOptions.map((batch) => (
               <option key={batch} value={batch}>
-                {batch === 'All' ? 'All Batches' : batch}
+                {batch === "All" ? "All Batches" : batch}
               </option>
             ))}
           </select>
@@ -335,7 +367,10 @@ export default function Fees() {
               className="w-full bg-transparent text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none"
             />
             {searchTerm && (
-              <button onClick={() => setSearchTerm('')} className="ml-1 text-zinc-400 hover:text-zinc-600">
+              <button
+                onClick={() => setSearchTerm("")}
+                className="ml-1 text-zinc-400 hover:text-zinc-600"
+              >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -347,22 +382,22 @@ export default function Fees() {
       <div className="flex mt-4 bg-zinc-100 dark:bg-zinc-800/50 p-1 rounded-xl">
         <button
           type="button"
-          onClick={() => setActiveTab('pending')}
+          onClick={() => setActiveTab("pending")}
           className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'pending'
-              ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+            activeTab === "pending"
+              ? "bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-sm"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
           }`}
         >
           Not Paid ({unpaidStudents.length})
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('paid')}
+          onClick={() => setActiveTab("paid")}
           className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'paid'
-              ? 'bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+            activeTab === "paid"
+              ? "bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-sm"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
           }`}
         >
           Paid ({paidStudents.length})
@@ -373,24 +408,30 @@ export default function Fees() {
       <div className="mt-3 space-y-2 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
         {displayedStudents.length === 0 ? (
           <div className="text-center py-16 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-zinc-200/50 dark:border-white/5 lg:col-span-2">
-            {activeTab === 'pending' ? (
+            {activeTab === "pending" ? (
               <div>
                 <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Check className="w-6 h-6 text-emerald-500" />
                 </div>
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">All fees collected! 🎉</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Every student has paid for this month</p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                  All fees collected! 🎉
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Every student has paid for this month
+                </p>
               </div>
             ) : (
               <div>
                 <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                  {searchTerm ? 'No students found matching your search' : 'No payments recorded yet this month'}
+                  {searchTerm
+                    ? "No students found matching your search"
+                    : "No payments recorded yet this month"}
                 </p>
               </div>
             )}
           </div>
-        ) : activeTab === 'pending' ? (
-          displayedStudents.map(student => (
+        ) : activeTab === "pending" ? (
+          displayedStudents.map((student) => (
             <FeeStudentCard
               key={student.id || student._id}
               student={student}
@@ -399,7 +440,7 @@ export default function Fees() {
             />
           ))
         ) : (
-          displayedStudents.map(student => (
+          displayedStudents.map((student) => (
             <PaidStudentCard
               key={student.id || student._id}
               student={student}
@@ -411,13 +452,14 @@ export default function Fees() {
       </div>
 
       {/* ===================== MOBILE FAB ===================== */}
-      {activeTab === 'pending' && unpaidStudents.length > 0 && (
+      {activeTab === "pending" && unpaidStudents.length > 0 && (
         <div
           className="md:hidden fixed z-40 right-5"
-          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+          style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}
         >
           <div className="bg-zinc-800/90 dark:bg-zinc-700/90 backdrop-blur-md text-white text-xs font-semibold px-3.5 py-2 rounded-full shadow-lg">
-            {unpaidStudents.length} pending · ₹{stats.pending.toLocaleString('en-IN')}
+            {unpaidStudents.length} pending · ₹
+            {stats.pending.toLocaleString("en-IN")}
           </div>
         </div>
       )}
@@ -435,7 +477,10 @@ export default function Fees() {
       {/* ===================== DELETE CONFIRMATION ===================== */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setDeleteTarget(null)}
+          />
           <div className="relative bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/50 dark:border-zinc-700/50 shadow-2xl p-6 mx-4 max-w-sm w-full text-center">
             <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
               <Trash2 className="w-5 h-5 text-red-500" />
@@ -444,7 +489,9 @@ export default function Fees() {
               Undo Payment?
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-              This will delete all payment records for <strong>{deleteTarget.name}</strong> in {format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}.
+              This will delete all payment records for{" "}
+              <strong>{deleteTarget.name}</strong> in{" "}
+              {format(new Date(selectedMonth + "-01"), "MMMM yyyy")}.
             </p>
             <div className="flex gap-3 mt-5">
               <button
@@ -460,7 +507,7 @@ export default function Fees() {
                 disabled={isDeleting}
                 className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {isDeleting ? 'Deleting...' : 'Yes, Undo'}
+                {isDeleting ? "Deleting..." : "Yes, Undo"}
               </button>
             </div>
           </div>

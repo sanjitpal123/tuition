@@ -28,13 +28,17 @@ import {
   Sun,
   Moon,
   Bell,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { DashboardSkeleton } from "../components/ui/Skeleton";
 
-function StatCard({ title, value, icon: Icon, trend, subtext }) {
+function StatCard({ title, value, icon: Icon, trend, subtext, isClickable = false, onClick }) {
   return (
-    <Card>
+    <Card 
+      onClick={onClick}
+      className={isClickable ? "group cursor-pointer hover:border-red-500/50 hover:shadow-lg transition-all active:scale-[0.99]" : ""}
+    >
       <CardContent className="p-4 sm:p-6">
         <div className="flex items-start sm:items-center justify-between">
           <div>
@@ -45,8 +49,15 @@ function StatCard({ title, value, icon: Icon, trend, subtext }) {
               {value}
             </p>
           </div>
-          <div className="p-2 sm:p-3 bg-red-100 dark:bg-red-950/30 rounded-lg">
-            <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-500" />
+          <div className="flex items-center gap-2">
+            <div className="p-2 sm:p-3 bg-red-100 dark:bg-red-950/30 rounded-lg">
+              <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-500" />
+            </div>
+            {isClickable && (
+              <div className="w-7 h-7 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center transition-all">
+                <ChevronRight className="w-4 h-4 stroke-[2.5] transform group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            )}
           </div>
         </div>
         {(trend || subtext) && (
@@ -77,6 +88,7 @@ export default function Dashboard() {
     recentActivity,
     batches,
     realNotifications,
+    unpaidStudents,
     isLoading,
   } = useData();
   const { theme, toggleTheme } = useTheme();
@@ -626,6 +638,39 @@ export default function Dashboard() {
                 <ChevronRight className="w-4 h-4" />
               </div>
             </div>
+
+            {/* 5. Overdue Defaulters Item */}
+            <div
+              onClick={() => navigate("/overduestudents")}
+              className="relative flex items-center justify-between p-3.5 pl-4 rounded-2xl bg-red-500/5 dark:bg-rose-950/20 hover:bg-red-500/10 dark:hover:bg-rose-950/30 active:scale-[0.98] transition-all cursor-pointer border border-red-500/30 dark:border-red-500/30 shadow-sm overflow-hidden group"
+            >
+              {/* Left Glowing Accent Bar */}
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-red-500 rounded-r-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+
+              <div className="flex items-center space-x-3.5 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/15 dark:bg-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0 shadow-sm border border-red-500/30">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="truncate">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-heading font-extrabold text-zinc-900 dark:text-white truncate">
+                      Overdue Students
+                    </h4>
+                    {unpaidStudents && unpaidStudents.length > 0 && (
+                      <span className="px-2 py-0.5 text-[10px] font-extrabold text-white bg-red-600 rounded-full animate-pulse">
+                        {unpaidStudents.length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-red-600/90 dark:text-red-400/90 truncate mt-0.5 font-medium">
+                    View fee defaulters list
+                  </p>
+                </div>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shadow-md shadow-red-600/25 flex-shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform">
+                <ChevronRight className="w-4.5 h-4.5 stroke-[2.5]" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -718,10 +763,10 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           <div
             onClick={() => navigate("/students")}
-            className="cursor-pointer transition-transform hover:scale-105"
+            className="cursor-pointer transition-transform hover:scale-[1.02]"
           >
             <StatCard
               title="Total Students"
@@ -732,7 +777,7 @@ export default function Dashboard() {
           </div>
           <div
             onClick={() => navigate("/schedule")}
-            className="cursor-pointer transition-transform hover:scale-105"
+            className="cursor-pointer transition-transform hover:scale-[1.02]"
           >
             <StatCard
               title="Classes"
@@ -743,7 +788,7 @@ export default function Dashboard() {
           </div>
           <div
             onClick={() => navigate("/fees")}
-            className="cursor-pointer transition-transform hover:scale-105"
+            className="cursor-pointer transition-transform hover:scale-[1.02]"
           >
             <StatCard
               title="Pending Fees"
@@ -752,15 +797,14 @@ export default function Dashboard() {
               subtext={`${pendingCount} pending`}
             />
           </div>
-          <div
-            onClick={() => navigate("/attendance")}
-            className="cursor-pointer transition-transform hover:scale-105 lg:hidden"
-          >
+          <div>
             <StatCard
-              title="Attendance"
-              value="Ready"
-              icon={Activity}
-              subtext="Today's log"
+              title="Overdue Students"
+              value={unpaidStudents ? unpaidStudents.length : 0}
+              icon={AlertTriangle}
+              subtext="Fee defaulters"
+              isClickable={true}
+              onClick={() => navigate("/overduestudents")}
             />
           </div>
         </div>

@@ -71,6 +71,13 @@ export default function Fees() {
     return options;
   }, []);
 
+  const selectedMonthLabel = useMemo(() => {
+    return (
+      monthOptions.find((m) => m.value === selectedMonth)?.label ||
+      selectedMonth
+    );
+  }, [monthOptions, selectedMonth]);
+
   // Batch options
   const batchOptions = useMemo(() => {
     const batches = new Set(students.map((s) => s.batchName).filter(Boolean));
@@ -407,27 +414,71 @@ export default function Fees() {
       {/* ===================== STUDENT LIST ===================== */}
       <div className="mt-3 space-y-2 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
         {displayedStudents.length === 0 ? (
-          <div className="text-center py-16 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-zinc-200/50 dark:border-white/5 lg:col-span-2">
-            {activeTab === "pending" ? (
-              <div>
-                <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Check className="w-6 h-6 text-emerald-500" />
+          <div className="text-center py-16 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-2xl border border-zinc-200/50 dark:border-zinc-800/80 lg:col-span-2 shadow-sm">
+            {studentStatuses.length === 0 ? (
+              <div className="px-4">
+                <div className="w-12 h-12 bg-zinc-500/10 text-zinc-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-zinc-500/20">
+                  <Calendar className="w-6 h-6 text-zinc-400" />
                 </div>
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                  All fees collected! 🎉
+                <p className="text-base font-heading font-extrabold text-zinc-900 dark:text-white">
+                  No Fee Data for {selectedMonthLabel}
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Every student has paid for this month
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
+                  No active student records or fee data exist for this month.
                 </p>
               </div>
+            ) : activeTab === "pending" ? (
+              searchTerm || selectedBatch !== "All" ? (
+                <div className="px-4">
+                  <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3 border border-red-500/20">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <p className="text-base font-heading font-extrabold text-zinc-900 dark:text-white">
+                    No Matching Pending Students
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs mx-auto">
+                    No pending fee payments match "{searchTerm || selectedBatch}".
+                  </p>
+                </div>
+              ) : (
+                <div className="px-4">
+                  <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3 border border-emerald-500/20">
+                    <Check className="w-6 h-6 stroke-[3]" />
+                  </div>
+                  <p className="text-base font-heading font-extrabold text-zinc-900 dark:text-white">
+                    All Fees Collected! 🎉
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
+                    Every student ({paidStudents.length}) has completed their fee payments for {selectedMonthLabel}.
+                  </p>
+                </div>
+              )
             ) : (
-              <div>
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                  {searchTerm
-                    ? "No students found matching your search"
-                    : "No payments recorded yet this month"}
-                </p>
-              </div>
+              searchTerm || selectedBatch !== "All" ? (
+                <div className="px-4">
+                  <div className="w-12 h-12 bg-zinc-500/10 text-zinc-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-zinc-500/20">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <p className="text-base font-heading font-extrabold text-zinc-900 dark:text-white">
+                    No Matching Paid Students
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs mx-auto">
+                    No paid payments match "{searchTerm || selectedBatch}".
+                  </p>
+                </div>
+              ) : (
+                <div className="px-4">
+                  <div className="w-12 h-12 bg-zinc-500/10 text-zinc-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-zinc-500/20">
+                    <Clock className="w-6 h-6" />
+                  </div>
+                  <p className="text-base font-heading font-extrabold text-zinc-900 dark:text-white">
+                    No Paid Students Yet
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
+                    No payments recorded yet for {selectedMonthLabel}.
+                  </p>
+                </div>
+              )
             )}
           </div>
         ) : activeTab === "pending" ? (

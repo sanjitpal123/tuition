@@ -100,10 +100,28 @@ export function DashboardLayout() {
     }).catch(err => console.log('failed: ', err));
   }, []);
 
+  const profileMenuRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem("tutorToken");
     localStorage.removeItem("tutorProfile");
-    navigate("/login");
+    localStorage.removeItem("studentToken");
+    localStorage.removeItem("studentProfile");
+    window.location.href = "/login";
   };
 
   return (
@@ -234,12 +252,10 @@ export function DashboardLayout() {
                   )}
                 </button>
 
-                <div className="relative">
+                <div className="relative" ref={profileMenuRef}>
                   <button
+                    type="button"
                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    onBlur={() =>
-                      setTimeout(() => setIsProfileMenuOpen(false), 200)
-                    }
                     className="max-w-xs bg-zinc-200/50 dark:bg-zinc-900/40 backdrop-blur-xl flex items-center justify-center p-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                   >
                     <span className="sr-only">Open user menu</span>
@@ -257,7 +273,8 @@ export function DashboardLayout() {
                       </div>
                       <div className="p-1.5">
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); navigate("/settings"); }}
+                          type="button"
+                          onClick={() => { setIsProfileMenuOpen(false); navigate("/settings"); }}
                           className="flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:text-white hover:bg-gray-100 dark:bg-zinc-800 rounded-lg transition-colors group"
                         >
                           <User className="w-4 h-4 mr-3 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-700 dark:text-zinc-300 transition-colors" />
@@ -266,7 +283,8 @@ export function DashboardLayout() {
                       </div>
                       <div className="p-1.5 border-t border-zinc-200 dark:border-zinc-800">
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); handleLogout(); }}
+                          type="button"
+                          onClick={() => { setIsProfileMenuOpen(false); handleLogout(); }}
                           className="flex items-center w-full px-3 py-2 text-sm text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors group"
                         >
                           <LogOut className="w-4 h-4 mr-3 text-red-500/70 group-hover:text-red-400 transition-colors" />

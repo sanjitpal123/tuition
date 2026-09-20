@@ -57,7 +57,9 @@ export default function StudentDashboard() {
         if (err.response?.status === 401) {
           localStorage.removeItem('studentToken');
           localStorage.removeItem('studentProfile');
-          navigate('/login', { replace: true });
+          localStorage.removeItem('tutorToken');
+          localStorage.removeItem('tutorProfile');
+          window.location.href = '/login';
         }
       } finally {
         setLoading(false);

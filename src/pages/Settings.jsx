@@ -121,8 +121,10 @@ export default function Settings() {
   const confirmLogout = () => {
     localStorage.removeItem("tutorToken");
     localStorage.removeItem("tutorProfile");
+    localStorage.removeItem("studentToken");
+    localStorage.removeItem("studentProfile");
     setIsLogoutModalOpen(false);
-    navigate("/login");
+    window.location.href = "/login";
   };
 
   const unreadCount = (realNotifications || []).filter(n => !n.isRead).length;

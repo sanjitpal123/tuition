@@ -104,7 +104,9 @@ export function StudentLayout() {
   const handleLogout = () => {
     localStorage.removeItem("studentToken");
     localStorage.removeItem("studentProfile");
-    navigate("/login", { replace: true });
+    localStorage.removeItem("tutorToken");
+    localStorage.removeItem("tutorProfile");
+    window.location.href = "/login";
   };
 
   const handleSwitchTuition = (tuitionId) => {

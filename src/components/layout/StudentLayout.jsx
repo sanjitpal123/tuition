@@ -55,13 +55,21 @@ export function StudentLayout() {
     localStorage.getItem("studentProfile") || '{"name":"Student"}'
   );
   
-  // Multiple tuitions from login or fallback
-  const multipleTuitions = currentUser.tuitions || [
-    { id: '1', name: currentUser.tuitionName || 'Setupclass', subject: 'All Subjects', role: 'Student' }
-  ];
-  
+  // Multiple tuitions from login or fallback with frontend deduplication
+  const rawTuitions = currentUser.tuitions || [];
+  const uniqueTuitionsMap = new Map();
+  rawTuitions.forEach(t => {
+    const tid = t.id || t._id;
+    if (tid && !uniqueTuitionsMap.has(String(tid))) {
+      uniqueTuitionsMap.set(String(tid), t);
+    }
+  });
+  const multipleTuitions = uniqueTuitionsMap.size > 0 
+    ? Array.from(uniqueTuitionsMap.values())
+    : [{ id: '1', name: currentUser.tuitionName || 'My Tuition', subject: 'All Subjects', role: 'Student' }];
+
   const currentTuitionId = searchParams.get('tuitionId');
-  const selectedTuition = multipleTuitions.find(t => (t.id === currentTuitionId || t._id === currentTuitionId)) || multipleTuitions[0];
+  const selectedTuition = multipleTuitions.find(t => (t.id === currentTuitionId || t._id === currentTuitionId)) || multipleTuitions[0] || { name: 'My Tuition' };
 
   const { realNotifications, setRealNotifications } = useData();
   const unreadCount = realNotifications?.filter(n => !n.isRead)?.length || 0;

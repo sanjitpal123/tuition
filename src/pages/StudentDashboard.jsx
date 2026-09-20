@@ -75,32 +75,6 @@ export default function StudentDashboard() {
     setSearchParams(tuitionId ? { tuitionId } : {}, { replace: true });
   };
 
-  if (loading) {
-    return <StudentDashboardSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full p-8 text-center shadow-xl border-red-200 dark:border-red-900/40 bg-white dark:bg-zinc-900">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Unable to Load Dashboard</h2>
-          <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors"
-          >
-            Retry
-          </button>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
   const tuitions = data?.tuitions || [];
   const activeTuition = tuitions.find(t => t.id === selectedTuitionId) || tuitions[0] || null;
   const attendance = data?.attendance || { totalAttended: 0, totalClasses: 0, records: [] };
@@ -110,9 +84,9 @@ export default function StudentDashboard() {
   const absentDays = Math.max(0, (attendance.totalClasses || 0) - (attendance.totalAttended || 0));
 
   const todaysClass = data?.todaysClass || null;
-  const homeworkList = data?.homework || data?.homeworks || [];
-  const announcementsList = data?.announcements || [];
-  const feeHistory = data?.fees?.history || data?.feeHistory || [];
+  const homeworkList = Array.isArray(data?.homework || data?.homeworks) ? (data?.homework || data?.homeworks) : [];
+  const announcementsList = Array.isArray(data?.announcements) ? data.announcements : [];
+  const feeHistory = Array.isArray(data?.fees?.history || data?.feeHistory) ? (data?.fees?.history || data?.feeHistory) : [];
   
   // Calculate billing cycle derived from student admission date
   const billingCycle = React.useMemo(() => {
@@ -150,73 +124,36 @@ export default function StudentDashboard() {
 
   const tuitionQuery = selectedTuitionId ? `?tuitionId=${selectedTuitionId}` : '';
 
+  if (loading) {
+    return <StudentDashboardSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-8 text-center shadow-xl border-red-200 dark:border-red-900/40 bg-white dark:bg-zinc-900">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={32} />
+          </div>
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Unable to Load Dashboard</h2>
+          <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors"
+          >
+            Retry
+          </button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-8 font-sans transition-colors duration-300">
       
-      {/* 1. Multiple Tuitions Selector Hub */}
-      {tuitions.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <Building className="w-5 h-5 text-red-600 dark:text-red-500" />
-              <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Your Enrolled Tuitions ({tuitions.length})
-              </h2>
-            </div>
-            <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium hidden sm:inline">
-              Tap a tuition to switch data view
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {tuitions.map((t) => {
-              const isActive = (selectedTuitionId ? t.id === selectedTuitionId : t.id === activeTuition?.id);
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => handleSelectTuition(t.id)}
-                  type="button"
-                  className={`p-4 rounded-2xl text-left transition-all relative overflow-hidden border flex items-center justify-between gap-3 group ${
-                    isActive
-                      ? 'bg-gradient-to-r from-red-600 to-rose-700 text-white shadow-lg shadow-red-600/20 border-red-500 ring-2 ring-red-500/30 ring-offset-2 ring-offset-zinc-50 dark:ring-offset-zinc-950 scale-[1.01]'
-                      : 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white border-zinc-200/80 dark:border-zinc-800/80 hover:border-red-300 dark:hover:border-red-900/50 hover:shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-sm uppercase ${
-                      isActive 
-                        ? 'bg-white/20 text-white backdrop-blur-sm' 
-                        : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'
-                    }`}>
-                      {t.name?.charAt(0) || 'T'}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className={`font-bold text-sm sm:text-base truncate leading-snug ${isActive ? 'text-white' : 'text-zinc-900 dark:text-white'}`}>
-                        {t.name}
-                      </h3>
-                      <p className={`text-xs truncate font-medium ${isActive ? 'text-red-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                        {t.batchName || t.subject || 'Student Class'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {isActive ? (
-                    <span className="flex-shrink-0 px-2.5 py-1 bg-white/25 backdrop-blur-md rounded-full text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Active
-                    </span>
-                  ) : (
-                    <span className="flex-shrink-0 text-xs font-semibold text-zinc-400 group-hover:text-red-600 dark:group-hover:text-red-400 flex items-center gap-1 transition-colors">
-                      View <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* 2. Active Tuition Hero Banner */}
+      {/* Active Tuition Hero Banner */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 text-white p-6 sm:p-8 md:p-10 border border-zinc-800/80 shadow-xl">
         <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -left-12 -top-12 w-64 h-64 bg-rose-600/10 rounded-full blur-3xl pointer-events-none"></div>

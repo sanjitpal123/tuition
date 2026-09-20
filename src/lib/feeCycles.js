@@ -108,16 +108,22 @@ export function getStudentBillingCycle(student, feePayments = [], asOfDate = new
   // If student joined in future or today is before first cycle due date
   const isNewlyAdmittedBeforeDue = asOfDate < admissionDate;
 
+  const safeFormatDate = (dateObj, formatStr = 'dd MMM yyyy') => {
+    if (!dateObj) return 'N/A';
+    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
+    return isValid(d) ? format(d, formatStr) : 'N/A';
+  };
+
   return {
     monthlyFee,
     joinDay,
     admissionDate,
-    admissionDateFormatted: format(admissionDate, 'dd MMM yyyy'),
+    admissionDateFormatted: safeFormatDate(admissionDate, 'dd MMM yyyy'),
     cycleStartDate: finalCycleStartDate,
-    cycleStartFormatted: format(finalCycleStartDate, 'dd MMM yyyy'),
+    cycleStartFormatted: safeFormatDate(finalCycleStartDate, 'dd MMM yyyy'),
     nextDueDate: finalNextDueDate,
-    nextDueDateFormatted: format(finalNextDueDate, 'dd MMM yyyy'),
-    cycleEndFormatted: format(finalCycleEndDate, 'dd MMM yyyy'),
+    nextDueDateFormatted: safeFormatDate(finalNextDueDate, 'dd MMM yyyy'),
+    cycleEndFormatted: safeFormatDate(finalCycleEndDate, 'dd MMM yyyy'),
     totalMonthsPassed,
     totalFeeExpectedToDate,
     totalPaidAllTime,

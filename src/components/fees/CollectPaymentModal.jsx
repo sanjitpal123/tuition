@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Check, IndianRupee } from 'lucide-react';
+import { format, isValid } from 'date-fns';
 
 function getInitials(name) {
   if (!name) return 'ST';
@@ -12,27 +13,83 @@ function getInitials(name) {
     .toUpperCase();
 }
 
-export function CollectPaymentModal({ student, onConfirm, onClose, isSubmitting }) {
-  const monthlyFee = student?.monthlyFee || 0;
-  const remaining = student?.remainingBalance || monthlyFee;
-  const alreadyPaid = student?.totalPaidThisMonth || 0;
+export function CollectPaymentModal({ student, onConfirm, onSubmit, onClose, isSubmitting }) {
+  const handlePayment = onConfirm || onSubmit;
+  const monthlyFee = Number(student?.monthlyFee || student?.fees || student?.feeStatus?.monthlyFee || student?.fee || 0);
+  const remaining = Number(
+    student?.remainingBalance ??
+    student?.pendingAmount ??
+    (student?.feeStatus?.pendingAmount ? Math.abs(student.feeStatus.pendingAmount) : null) ??
+    monthlyFee
+  );
+  const alreadyPaid = Number(student?.totalPaidThisMonth || 0);
 
-  const [amount, setAmount] = useState(String(remaining));
+  // Month options dropdown (12 months back + 2 forward from admission)
+  const monthOptions = useMemo(() => {
+    const options = [];
+    const now = new Date();
+    let admDate = student?.admissionDate ? new Date(student.admissionDate) : (student?.createdAt ? new Date(student.createdAt) : new Date());
+    if (!isValid(admDate)) admDate = new Date();
+
+    const startDate = new Date(Math.min(admDate.getTime(), new Date(now.getFullYear(), now.getMonth() - 6, 1).getTime()));
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+
+    let curr = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    while (curr <= endDate) {
+      const val = format(curr, 'yyyy-MM');
+      const label = format(curr, 'MMMM yyyy');
+      options.push({ value: val, label });
+      curr.setMonth(curr.getMonth() + 1);
+    }
+
+    return options.reverse(); // Newest month on top
+  }, [student]);
+
+  const [selectedFeeMonth, setSelectedFeeMonth] = useState(
+    student?.selectedMonth || student?.month || format(new Date(), 'yyyy-MM')
+  );
+
+  const [amount, setAmount] = useState(String(monthlyFee || ''));
   const [paymentMode, setPaymentMode] = useState('cash');
   const [note, setNote] = useState('');
+
+  // Automatically default amount collecting to monthlyFee whenever month or student changes
+  useEffect(() => {
+    const fee = Number(student?.monthlyFee || student?.fees || student?.feeStatus?.monthlyFee || student?.fee || 0);
+    if (fee > 0) {
+      setAmount(String(fee));
+    }
+    if (student?.selectedMonth || student?.month) {
+      setSelectedFeeMonth(student.selectedMonth || student.month);
+    }
+  }, [selectedFeeMonth, student, monthlyFee]);
 
   if (!student) return null;
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     const numAmount = Number(amount);
     if (!numAmount || numAmount <= 0) return;
-    onConfirm({
-      studentId: student.id || student._id,
+
+    const sId = student._id || student.id;
+    const bId = typeof student.batchId === 'object' ? (student.batchId?._id || student.batchId?.id) : student.batchId;
+
+    const payload = {
+      studentId: sId,
+      batchId: bId,
       amount: numAmount,
+      month: selectedFeeMonth,
       paymentMode,
-      note: note.trim() || undefined,
-    });
+      note: note ? note.trim() : undefined,
+    };
+
+    if (typeof handlePayment === 'function') {
+      handlePayment(payload);
+    } else {
+      console.error("No onConfirm or onSubmit callback provided to CollectPaymentModal");
+    }
   };
 
   const parsedAmount = Number(amount) || 0;
@@ -79,15 +136,33 @@ export function CollectPaymentModal({ student, onConfirm, onClose, isSubmitting 
               </div>
             </div>
 
+            {/* Select Fee Month Dropdown */}
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+                Collecting Fee For Month
+              </label>
+              <select
+                value={selectedFeeMonth}
+                onChange={(e) => setSelectedFeeMonth(e.target.value)}
+                className="block w-full rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 py-2.5 px-3.5 text-sm font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all cursor-pointer"
+              >
+                {monthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} {opt.value === format(new Date(), 'yyyy-MM') ? '(Current Month)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Fee Info */}
             <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-3 sm:p-3.5 space-y-1">
               <div className="flex justify-between text-xs sm:text-sm">
-                <span className="text-zinc-500 dark:text-zinc-400">Monthly Fee</span>
+                <span className="text-zinc-500 dark:text-zinc-400">Monthly Tuition Fee</span>
                 <span className="font-bold text-zinc-900 dark:text-white">₹{monthlyFee.toLocaleString('en-IN')}</span>
               </div>
               {alreadyPaid > 0 && (
                 <div className="flex justify-between text-xs sm:text-sm">
-                  <span className="text-zinc-500 dark:text-zinc-400">Already Paid</span>
+                  <span className="text-zinc-500 dark:text-zinc-400">Already Paid ({selectedFeeMonth})</span>
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">₹{alreadyPaid.toLocaleString('en-IN')}</span>
                 </div>
               )}
@@ -118,13 +193,13 @@ export function CollectPaymentModal({ student, onConfirm, onClose, isSubmitting 
                   autoFocus
                 />
               </div>
-              {remaining > 0 && parsedAmount !== remaining && (
+              {monthlyFee > 0 && parsedAmount !== monthlyFee && (
                 <button
                   type="button"
-                  onClick={() => setAmount(String(remaining))}
-                  className="mt-1 text-xs text-red-500 hover:text-red-400 font-medium"
+                  onClick={() => setAmount(String(monthlyFee))}
+                  className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
                 >
-                  Set to ₹{remaining}
+                  Set to Monthly Fee (₹{monthlyFee})
                 </button>
               )}
             </div>
@@ -169,6 +244,7 @@ export function CollectPaymentModal({ student, onConfirm, onClose, isSubmitting 
           <div className="p-3.5 sm:p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200/80 dark:border-zinc-800 flex-shrink-0">
             <button
               type="submit"
+              onClick={handleSubmit}
               disabled={!parsedAmount || parsedAmount <= 0 || isSubmitting}
               className="w-full py-3 sm:py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] transition-all text-white text-sm sm:text-base font-bold shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
             >

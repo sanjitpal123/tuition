@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { IndianRupee } from 'lucide-react';
 
 function getInitials(name) {
@@ -13,31 +14,37 @@ function getInitials(name) {
 }
 
 export function FeeStudentCard({ student, onCollect, isSubmitting }) {
+  const navigate = useNavigate();
   const remaining = student.remainingBalance || student.monthlyFee || 0;
   const isPartial = student.totalPaidThisMonth > 0 && student.computedFeeStatus !== 'Paid';
+  const studentId = student._id || student.id;
 
   return (
     <div className="bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-zinc-200/50 dark:border-white/5 shadow-md shadow-black/5 dark:shadow-black/40 p-4 flex items-center gap-3 sm:gap-4 transition-all hover:border-zinc-300 dark:hover:border-zinc-700">
-      {/* Avatar */}
-      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 font-bold text-xs sm:text-sm flex items-center justify-center flex-shrink-0">
-        {getInitials(student.name)}
-      </div>
+      {/* Avatar + Student Info clickable */}
+      <div
+        onClick={() => navigate(`/students/${studentId}`)}
+        className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer group"
+      >
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 font-bold text-xs sm:text-sm flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+          {getInitials(student.name)}
+        </div>
 
-      {/* Student Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm sm:text-base font-heading font-bold text-zinc-900 dark:text-white truncate">
-          {student.name}
-        </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-          {student.batchName || 'General'}
-        </p>
-        {isPartial && (
-          <p className="text-[11px] mt-0.5 font-medium flex items-center gap-1 flex-wrap">
-            <span className="text-emerald-600 dark:text-emerald-400">₹{student.totalPaidThisMonth} paid</span>
-            <span className="text-zinc-400 dark:text-zinc-500">·</span>
-            <span className="text-red-600 dark:text-red-400">₹{remaining} left</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm sm:text-base font-heading font-bold text-zinc-900 dark:text-white truncate group-hover:text-red-500 transition-colors">
+            {student.name}
           </p>
-        )}
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+            {student.batchName || 'General'}
+          </p>
+          {isPartial && (
+            <p className="text-[11px] mt-0.5 font-medium flex items-center gap-1 flex-wrap">
+              <span className="text-emerald-600 dark:text-emerald-400">₹{student.totalPaidThisMonth} paid</span>
+              <span className="text-zinc-400 dark:text-zinc-500">·</span>
+              <span className="text-red-600 dark:text-red-400">₹{remaining} left</span>
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Amount */}

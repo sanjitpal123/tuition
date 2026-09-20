@@ -78,10 +78,15 @@ export default function OverdueStudents() {
   const handleCollectSubmit = async (paymentData) => {
     setIsSubmitting(true);
     try {
-      await recordFeePayment(paymentData);
+      await recordFeePayment({
+        ...paymentData,
+        batchId: collectingStudent?.batchId?._id || collectingStudent?.batchId || paymentData.batchId,
+        month: paymentData.month || selectedMonth || new Date().toISOString().slice(0, 7)
+      });
       setCollectingStudent(null);
     } catch (err) {
       console.error("Failed to record payment", err);
+      alert("Failed to record payment.");
     } finally {
       setIsSubmitting(false);
     }
@@ -252,13 +257,16 @@ export default function OverdueStudents() {
               >
                 {/* Header Row */}
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-full bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/20 font-heading font-bold text-xs flex items-center justify-center flex-shrink-0">
+                  <div
+                    onClick={() => navigate(`/students/${studentId}`)}
+                    className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/20 font-heading font-bold text-xs flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       {getInitials(student.name)}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="text-sm font-heading font-bold text-zinc-900 dark:text-white truncate">
+                        <p className="text-sm font-heading font-bold text-zinc-900 dark:text-white truncate group-hover:text-rose-500 transition-colors">
                           {student.name}
                         </p>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
@@ -353,6 +361,7 @@ export default function OverdueStudents() {
         <CollectPaymentModal
           student={collectingStudent}
           onClose={() => setCollectingStudent(null)}
+          onConfirm={handleCollectSubmit}
           onSubmit={handleCollectSubmit}
           isSubmitting={isSubmitting}
         />

@@ -1,6 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Edit2, RotateCcw } from 'lucide-react';
-import { format } from 'date-fns';
 
 function getInitials(name) {
   if (!name) return 'ST';
@@ -14,30 +14,36 @@ function getInitials(name) {
 }
 
 export function PaidStudentCard({ student, onEdit, onUndo }) {
+  const navigate = useNavigate();
   const paidAmount = student.totalPaidThisMonth || 0;
   const monthlyFee = student.monthlyFee || 0;
   const extra = student.extraPaid || 0;
+  const studentId = student._id || student.id;
 
   return (
     <div className="bg-white/80 dark:bg-zinc-900/40 backdrop-blur-xl rounded-xl border border-emerald-500/10 dark:border-emerald-500/5 shadow-md shadow-black/5 dark:shadow-black/40 p-4 flex items-center gap-3 sm:gap-4 transition-all">
-      {/* Avatar with check overlay */}
-      <div className="relative flex-shrink-0">
-        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold text-xs sm:text-sm flex items-center justify-center">
-          {getInitials(student.name)}
+      {/* Avatar + Info clickable */}
+      <div
+        onClick={() => navigate(`/students/${studentId}`)}
+        className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer group"
+      >
+        <div className="relative flex-shrink-0">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold text-xs sm:text-sm flex items-center justify-center group-hover:scale-105 transition-transform">
+            {getInitials(student.name)}
+          </div>
+          <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900">
+            <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+          </div>
         </div>
-        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900">
-          <CheckCircle2 className="w-2.5 h-2.5 text-white" />
-        </div>
-      </div>
 
-      {/* Student Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm sm:text-base font-heading font-bold text-zinc-900 dark:text-white truncate">
-          {student.name}
-        </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-          {student.batchName || 'General'}
-        </p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm sm:text-base font-heading font-bold text-zinc-900 dark:text-white truncate group-hover:text-emerald-500 transition-colors">
+            {student.name}
+          </p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+            {student.batchName || 'General'}
+          </p>
+        </div>
       </div>
 
       {/* Paid Amount */}

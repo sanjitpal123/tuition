@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { startOfMonth, endOfMonth, eachDayOfInterval, format, parseISO, getDay, isBefore, startOfToday, getDaysInMonth } from 'date-fns';
-import { useParams, useNavigate } from 'react-router-dom';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, parseISO, getDay, isBefore, startOfToday, getDaysInMonth, isValid } from 'date-fns';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
@@ -35,13 +35,18 @@ import {
   Plus,
   IdCard as IdCardIcon,
   ShieldCheck,
-  GraduationCap
+  GraduationCap,
+  AlertTriangle,
+  Receipt,
+  Calendar,
+  Wallet
 } from 'lucide-react';
 import api from '../lib/api';
 
 export default function StudentView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     students,
     batches,
@@ -62,7 +67,7 @@ export default function StudentView() {
     console.log("Current Student View Data:", student);
   }, [students, student]);
 
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'attendance' | 'fees' | 'idcard'
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'fees'); // Default to 'fees' tab
   const [stats, setStats] = useState(null);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -223,6 +228,125 @@ export default function StudentView() {
 
   const billingCycle = React.useMemo(() => {
     return getStudentBillingCycle(student, feePayments);
+  }, [student, feePayments]);
+
+  const feeTimeline = React.useMemo(() => {
+    if (!student) return { nodes: [], totalPaid: 0, totalExpected: 0, totalDuesLeft: 0, monthsStudied: 0, admissionDateFormatted: '' };
+
+    const monthlyFee = Number(student.fees || student.monthlyFee || 0);
+
+    let admDate = student.admissionDate ? new Date(student.admissionDate) : (student.createdAt ? new Date(student.createdAt) : new Date());
+    if (!isValid(admDate)) admDate = new Date();
+
+    const admYear = admDate.getFullYear();
+    const admMonth = admDate.getMonth();
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const sId = student._id || student.id;
+    const payments = (feePayments || []).filter(p => {
+      const pStudentId = p.studentId?._id || p.studentId;
+      return pStudentId === sId;
+    }).sort((a, b) => new Date(b.createdAt || b.paymentDate || 0) - new Date(a.createdAt || a.paymentDate || 0));
+
+    // Helper to get standard YYYY-MM key for any payment record
+    const getPaymentMonthKey = (p) => {
+      if (p.month && /^\d{4}-\d{2}$/.test(p.month)) return p.month;
+      if (p.paymentDate && /^\d{4}-\d{2}$/.test(String(p.paymentDate).slice(0, 7))) return String(p.paymentDate).slice(0, 7);
+      if (p.createdAt && /^\d{4}-\d{2}$/.test(String(p.createdAt).slice(0, 7))) return String(p.createdAt).slice(0, 7);
+      return format(now, 'yyyy-MM');
+    };
+
+    // Collect all month keys that should be in the timeline:
+    // 1) All months from admission date to current month
+    const monthKeysSet = new Set();
+    let y = admYear;
+    let m = admMonth;
+
+    while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+      monthKeysSet.add(`${y}-${String(m + 1).padStart(2, '0')}`);
+      m++;
+      if (m > 11) {
+        m = 0;
+        y++;
+      }
+    }
+
+    // 2) Plus any month that has a recorded payment for this student
+    payments.forEach(p => {
+      monthKeysSet.add(getPaymentMonthKey(p));
+    });
+
+    if (monthKeysSet.size === 0) {
+      monthKeysSet.add(format(now, 'yyyy-MM'));
+    }
+
+    // Sort month keys chronologically
+    const sortedMonthKeys = Array.from(monthKeysSet).sort();
+
+    const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const monthsStudied = sortedMonthKeys.length;
+    const totalExpected = monthsStudied * monthlyFee;
+
+    const rawNodes = sortedMonthKeys.map((mKey, index) => {
+      const dateObj = new Date(mKey + '-01');
+      const monthName = isValid(dateObj) ? format(dateObj, 'MMMM yyyy') : mKey;
+      const monthShort = isValid(dateObj) ? format(dateObj, 'MMM yyyy') : mKey;
+
+      // Filter payments explicitly recorded for this month key
+      const mPayments = payments.filter(p => getPaymentMonthKey(p) === mKey);
+
+      const paidForMonth = mPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const dueForMonth = monthlyFee > 0 ? Math.max(0, monthlyFee - paidForMonth) : 0;
+
+      const isCurrentMonth = mKey === format(now, 'yyyy-MM');
+      const isPastMonth = isValid(dateObj) && dateObj < new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let status = 'Paid';
+      if (monthlyFee > 0) {
+        if (paidForMonth >= monthlyFee) {
+          status = 'Paid';
+        } else if (paidForMonth > 0) {
+          status = 'Partial';
+        } else if (isPastMonth) {
+          status = 'Overdue';
+        } else {
+          status = 'Pending';
+        }
+      }
+
+      return {
+        monthKey: mKey,
+        dateObj,
+        year: isValid(dateObj) ? dateObj.getFullYear() : currentYear,
+        month: isValid(dateObj) ? dateObj.getMonth() : currentMonth,
+        monthName,
+        monthShort,
+        cycleIndex: index + 1,
+        payments: mPayments,
+        paidForMonth,
+        dueForMonth,
+        monthlyFee,
+        status,
+        isCurrentMonth
+      };
+    });
+
+    const totalDuesLeft = rawNodes.reduce((sum, node) => sum + node.dueForMonth, 0);
+
+    // Reverse so latest month is on top
+    const timelineNodes = [...rawNodes].reverse();
+
+    return {
+      nodes: timelineNodes,
+      totalPaid,
+      totalExpected,
+      totalDuesLeft,
+      monthsStudied,
+      admissionDateFormatted: format(admDate, 'dd MMM yyyy')
+    };
   }, [student, feePayments]);
 
   if (isDataLoading) {
@@ -820,152 +944,236 @@ export default function StudentView() {
       {/* 3. FEES & PAYMENT HISTORY SECTION */}
       {/* ========================================================================= */}
       {activeTab === 'fees' && (
-        <div className="space-y-4 animate-in fade-in duration-200">
+        <div className="space-y-5 animate-in fade-in duration-200">
 
-          {/* Fee Overview Card */}
-          <Card className="bg-gradient-to-br from-red-500/5 to-rose-500/10 border-red-200 dark:border-red-900/40">
-            <CardContent className="p-4 sm:p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">Monthly Tuition Fee</p>
-                  <h3 className="text-3xl sm:text-4xl font-heading font-extrabold text-zinc-900 dark:text-white mt-1">
-                    ₹{monthlyTuitionFee}
-                  </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                    Student Standard Fee Rate
-                  </p>
-                </div>
+          {/* Top Summary Banner Card */}
+          <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 dark:from-zinc-950 dark:via-zinc-900 dark:to-black text-white rounded-3xl p-5 sm:p-6 border border-zinc-800 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Total Fee Collection Progress</span>
+                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-0.5">
+                  Collected - <span className="text-emerald-400">₹{feeTimeline.totalPaid.toLocaleString()}</span> / <span className="text-zinc-300">₹{feeTimeline.totalExpected.toLocaleString()}</span>
+                </h3>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setPaymentMonth(new Date().toISOString().slice(0, 7));
+                  setPaymentAmount(student.monthlyFee || student.fees || '');
+                  setIsPayModalOpen(true);
+                }}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20"
+              >
+                <IndianRupee className="w-4 h-4 mr-1" />
+                Record Fee Payment
+              </Button>
+            </div>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setPaymentAmount(currentMonthPending > 0 ? String(currentMonthPending) : String(monthlyTuitionFee || ''));
-                      setIsPayModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-sm"
-                  >
-                    <IndianRupee className="w-4 h-4" />
-                    <span>Record Payment</span>
-                  </Button>
+            {/* Progress Bar */}
+            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-zinc-700/50">
+              <div
+                className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${feeTimeline.totalExpected > 0 ? Math.min(100, Math.round((feeTimeline.totalPaid / feeTimeline.totalExpected) * 100)) : 0}%`
+                }}
+              />
+            </div>
+
+            {/* 4 Summary Cards Grid (Admission Date, Months Studied, Total Paid, Dues Left) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              {/* Admission Date */}
+              <div className="bg-zinc-800/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-700/60">
+                <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Admission Date</span>
                 </div>
+                <p className="text-sm sm:text-base font-bold text-white truncate">
+                  {feeTimeline.admissionDateFormatted || 'N/A'}
+                </p>
               </div>
 
-              {/* Current Month Quick Balance Summary */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-red-200/60 dark:border-red-900/40">
-                <div className="bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
-                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">This Month ({format(new Date(), 'MMM yyyy')}) Paid</p>
-                  <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">
-                    ₹{currentMonthPaid} <span className="text-xs text-zinc-400 font-normal">/ ₹{monthlyTuitionFee}</span>
-                  </p>
+              {/* Months Studied */}
+              <div className="bg-zinc-800/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-700/60">
+                <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Months Studied</span>
                 </div>
-
-                <div className="hidden sm:block bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
-                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Next Due Date</p>
-                  <p className="text-base font-bold text-red-600 dark:text-red-400 mt-1">
-                    {billingCycle?.nextDueDateFormatted}
-                  </p>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">
-                    Cycle: {billingCycle?.cycleStartFormatted} - {billingCycle?.cycleEndFormatted}
-                  </p>
-                </div>
-
-                <div className="hidden sm:block bg-white/80 dark:bg-zinc-900/80 p-3.5 rounded-2xl border border-red-100 dark:border-red-950">
-                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Total All-Time Collected</p>
-                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                    ₹{totalAllTimePaid.toLocaleString()}
-                  </p>
-                </div>
+                <p className="text-sm sm:text-base font-bold text-white">
+                  {feeTimeline.monthsStudied} {feeTimeline.monthsStudied === 1 ? 'Month' : 'Months'}
+                </p>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Monthly Payment Summary & Receipts Breakdown */}
-          <Card>
-            <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              {/* Total Paid Till Now (Green) */}
+              <div className="bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-2xl">
+                <div className="flex items-center gap-1.5 text-emerald-400 mb-1">
+                  <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Total Paid</span>
+                </div>
+                <p className="text-base sm:text-lg font-extrabold text-emerald-400">
+                  ₹{feeTimeline.totalPaid.toLocaleString()}
+                </p>
+              </div>
+
+              {/* Dues Left (Red) */}
+              <div className="bg-rose-950/40 border border-rose-500/30 p-3.5 rounded-2xl">
+                <div className="flex items-center gap-1.5 text-rose-400 mb-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Dues Left</span>
+                </div>
+                <p className="text-base sm:text-lg font-extrabold text-rose-400">
+                  ₹{feeTimeline.totalDuesLeft.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Vertical Fee Payment Schedule Timeline */}
+          <Card className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
               <CardTitle className="text-base flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-red-500" />
-                  Monthly Fee History & Receipts
+                <span className="flex items-center gap-2 font-bold text-zinc-900 dark:text-white">
+                  <CreditCard className="w-4 h-4 text-rose-500" />
+                  Fee Payment Schedule Timeline
                 </span>
-                <span className="text-xs font-normal text-zinc-500">
-                  {monthlyFeeGroups.length} Month Cycles • {studentFeeHistory.length} Total Receipts
+                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  Monthly Tuition: ₹{monthlyTuitionFee}
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              {monthlyFeeGroups.length === 0 ? (
+
+            <CardContent className="p-4 sm:p-6">
+              {feeTimeline.nodes.length === 0 ? (
                 <div className="text-center py-10 text-zinc-500 dark:text-zinc-400 text-sm">
-                  No payment history found for this student.
+                  No billing timeline generated for this student.
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {monthlyFeeGroups.map((group) => {
-                    const isExtra = group.status === 'Extra';
-                    const isPending = group.status === 'Pending';
-                    const isPaidFull = group.status === 'Paid';
+                <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-200 dark:before:bg-zinc-800">
+                  {feeTimeline.nodes.map((node) => {
+                    const isPaid = node.status === 'Paid';
+                    const isPartial = node.status === 'Partial';
+                    const isOverdue = node.status === 'Overdue';
+                    const isPending = node.status === 'Pending';
 
                     return (
-                      <div key={group.monthKey} className="p-4 space-y-2.5 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                        {/* Main Month Row with Aggregated Sum */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-base font-bold text-zinc-900 dark:text-white">
-                                Month: {format(new Date(group.monthKey + '-01'), 'MMMM yyyy')}
-                              </span>
-                              <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                                (Tuition Fee: ₹{monthlyTuitionFee})
+                      <div key={node.monthKey} className="relative group">
+                        {/* Timeline Icon Node Badge */}
+                        <div className={`absolute -left-[27px] sm:-left-[35px] top-1 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow-sm z-10 transition-transform group-hover:scale-110 ${
+                          isPaid ? 'bg-emerald-500 text-white' :
+                          isPartial ? 'bg-amber-500 text-white' :
+                          isOverdue ? 'bg-rose-500 text-white' :
+                          'bg-zinc-400 dark:bg-zinc-700 text-white'
+                        }`}>
+                          {isPaid && <CheckCircle2 className="w-4 h-4" />}
+                          {isPartial && <Clock className="w-4 h-4" />}
+                          {isOverdue && <AlertTriangle className="w-4 h-4" />}
+                          {isPending && <Clock className="w-4 h-4" />}
+                        </div>
+
+                        {/* Month Card */}
+                        <div className={`p-4 rounded-2xl border transition-all ${
+                          node.isCurrentMonth
+                            ? 'bg-zinc-50/80 dark:bg-zinc-900/90 border-rose-500/40 shadow-sm'
+                            : 'bg-white dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                        }`}>
+                          {/* Header: Month Name & Status Badge */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-base font-bold text-zinc-900 dark:text-white">
+                                  {node.monthName}
+                                </h4>
+                                {node.isCurrentMonth && (
+                                  <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded-full">
+                                    Current Month
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                Cycle #{node.cycleIndex} • Standard Fee: ₹{node.monthlyFee}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {isPaid && (
+                                <Badge variant="success" className="bg-emerald-500 text-white px-3 py-1 font-bold text-xs flex items-center gap-1 shadow-sm shadow-emerald-500/20">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Paid
+                                </Badge>
+                              )}
+                              {isPartial && (
+                                <Badge variant="warning" className="bg-amber-500 text-white px-3 py-1 font-bold text-xs flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" /> Partial (₹{node.dueForMonth} Due)
+                                </Badge>
+                              )}
+                              {isOverdue && (
+                                <Badge variant="destructive" className="bg-rose-500 text-white px-3 py-1 font-bold text-xs flex items-center gap-1 shadow-sm shadow-rose-500/20">
+                                  <AlertTriangle className="w-3.5 h-3.5" /> Overdue (₹{node.dueForMonth})
+                                </Badge>
+                              )}
+                              {isPending && (
+                                <Badge variant="secondary" className="px-3 py-1 font-bold text-xs text-zinc-600 dark:text-zinc-300">
+                                  Pending (₹{node.dueForMonth})
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Amount breakdown */}
+                          <div className="grid grid-cols-3 gap-2 bg-zinc-50 dark:bg-zinc-800/40 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/80 text-center mb-3">
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-zinc-400 block">Monthly Fee</span>
+                              <span className="text-sm font-bold text-zinc-900 dark:text-white">₹{node.monthlyFee}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-zinc-400 block">Amount Paid</span>
+                              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{node.paidForMonth}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-zinc-400 block">Remaining Dues</span>
+                              <span className={`text-sm font-bold ${node.dueForMonth > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                                ₹{node.dueForMonth}
                               </span>
                             </div>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                              Total Paid: <strong className="text-zinc-900 dark:text-white text-sm font-bold">₹{group.totalPaid}</strong>
-                            </p>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {isExtra && (
-                              <Badge variant="success" className="bg-emerald-600 dark:bg-emerald-500 text-white font-bold px-3 py-1">
-                                +₹{group.balanceAmount} Extra Paid
-                              </Badge>
-                            )}
-                            {isPending && (
-                              <Badge variant="warning" className="px-3 py-1 font-bold">
-                                ₹{group.balanceAmount} Remaining
-                              </Badge>
-                            )}
-                            {isPaidFull && (
-                              <Badge variant="success" className="px-3 py-1 font-bold">
-                                Paid in Full
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Individual Installment Receipts */}
-                        <div className="bg-zinc-50 dark:bg-zinc-900/70 rounded-xl p-2.5 border border-zinc-100 dark:border-zinc-800/80 space-y-1.5">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                            Recorded Installment Receipts ({group.payments.length})
-                          </p>
-                          <div className="space-y-1">
-                            {group.payments.map((payment, pIdx) => (
-                              <div key={payment._id || payment.id || pIdx} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-white dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/50">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-zinc-900 dark:text-white">
-                                    ₹{payment.amount}
-                                  </span>
-                                  <span className="text-zinc-400 text-[11px]">
-                                    (Installment #{group.payments.length - pIdx})
-                                  </span>
-                                </div>
-                                <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">
-                                  Paid on: {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString()}
-                                </span>
+                          {/* Payment History Receipts for this month */}
+                          {node.payments.length > 0 && (
+                            <div className="space-y-1.5 mb-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                                Payment Receipts ({node.payments.length})
+                              </p>
+                              <div className="space-y-1">
+                                {node.payments.map((pmt, pIdx) => (
+                                  <div key={pmt._id || pmt.id || pIdx} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-xl bg-zinc-100/80 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700/50">
+                                    <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                      <Receipt className="w-3 h-3" /> ₹{pmt.amount}
+                                    </span>
+                                    <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                                      {new Date(pmt.createdAt || pmt.paymentDate || Date.now()).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        </div>
+                            </div>
+                          )}
 
+                          {/* Action button if month is not fully paid */}
+                          {!isPaid && (
+                            <div className="flex justify-end pt-1">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setPaymentMonth(node.monthKey);
+                                  setPaymentAmount(String(node.dueForMonth > 0 ? node.dueForMonth : node.monthlyFee));
+                                  setIsPayModalOpen(true);
+                                }}
+                                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 px-4 py-1.5 shadow-sm"
+                              >
+                                <IndianRupee className="w-3.5 h-3.5" />
+                                <span>Collect Fee ({node.monthShort})</span>
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

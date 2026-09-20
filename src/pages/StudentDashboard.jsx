@@ -20,7 +20,9 @@ import {
   Download,
   X,
   CreditCard,
-  ChevronRight
+  ChevronRight,
+  Layers,
+  CheckCircle2
 } from 'lucide-react';
 import { StudentDashboardSkeleton } from '../components/ui/Skeleton';
 
@@ -77,6 +79,7 @@ export default function StudentDashboard() {
   const homeworkList = Array.isArray(data?.homework || data?.homeworks) ? (data?.homework || data?.homeworks) : [];
   const announcementsList = Array.isArray(data?.announcements) ? data.announcements : [];
   const feeHistory = Array.isArray(data?.fees?.history || data?.feeHistory) ? (data?.fees?.history || data?.feeHistory) : [];
+  const classesList = Array.isArray(data?.classes) ? data.classes : [];
   
   // Calculate billing cycle derived from student admission date
   const billingCycle = React.useMemo(() => {
@@ -88,6 +91,14 @@ export default function StudentDashboard() {
 
   const tuitionQuery = selectedTuitionId ? `?tuitionId=${selectedTuitionId}` : '';
   const studentFirstName = data?.student?.name ? data.student.name.split(' ')[0] : 'Student';
+
+  // Compute fallback schedule days if no database class records
+  const batchScheduleDays = React.useMemo(() => {
+    if (classesList.length > 0) return [];
+    const rawSchedule = data?.student?.batch?.schedule;
+    if (Array.isArray(rawSchedule) && rawSchedule.length > 0) return rawSchedule;
+    return ['Mon', 'Wed', 'Fri'];
+  }, [classesList, data?.student?.batch?.schedule]);
 
   if (loading) {
     return <StudentDashboardSkeleton />;
@@ -116,7 +127,7 @@ export default function StudentDashboard() {
   if (!data) return null;
 
   return (
-    <div className="px-3 sm:px-6 md:px-8 py-3 max-w-7xl mx-auto space-y-4 sm:space-y-6 font-sans">
+    <div className="px-3.5 sm:px-6 md:px-8 py-3 max-w-7xl mx-auto space-y-4 sm:space-y-6 font-sans">
       
       {/* 1. Native Mobile Header Greeting */}
       <div className="flex items-center justify-between bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl p-3.5 sm:p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xs">
@@ -322,7 +333,88 @@ export default function StudentDashboard() {
 
       </section>
 
-      {/* 5. Compact Native Activity Feed */}
+      {/* 5. Class Routine & Schedule List View */}
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-red-500/10 text-red-500">
+              <Calendar size={16} />
+            </div>
+            <h2 className="text-sm font-extrabold text-zinc-900 dark:text-white">Class Schedule & Routine</h2>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+            {classesList.length > 0 ? `${classesList.length} Scheduled` : `${data.student?.batch?.name || 'Batch'} Routine`}
+          </span>
+        </div>
+
+        {classesList.length > 0 ? (
+          <div className="space-y-2">
+            {classesList.map((cls, idx) => {
+              const classDateStr = cls.date ? new Date(cls.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Scheduled';
+              return (
+                <div 
+                  key={cls._id || idx}
+                  className="flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xs text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
+                      <BookOpen size={16} />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-zinc-900 dark:text-white text-xs sm:text-sm">
+                        {cls.subject || data.student?.batch?.subject || 'Class Session'}
+                      </h3>
+                      <span className="text-zinc-400 text-[11px] font-medium flex items-center gap-1 mt-0.5">
+                        <Clock size={11} className="text-amber-500" />
+                        {classDateStr} • {cls.time || data.student?.batch?.time || 'Scheduled'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={cls.status === 'Completed' ? 'success' : cls.status === 'Cancelled' ? 'danger' : 'secondary'}
+                      className="text-[9.5px] font-extrabold uppercase px-2 py-0.5"
+                    >
+                      {cls.status || 'Upcoming'}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {batchScheduleDays.map((day, idx) => (
+              <div 
+                key={idx}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xs text-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
+                    <Calendar size={16} />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-zinc-900 dark:text-white text-xs sm:text-sm">
+                      {data.student?.batch?.subject || data.student?.batch?.name || 'Class Session'}
+                    </h3>
+                    <span className="text-zinc-400 text-[11px] font-medium flex items-center gap-1 mt-0.5">
+                      <Clock size={11} className="text-amber-500" />
+                      Every {day} • {data.student?.batch?.time || 'As Scheduled'}
+                    </span>
+                  </div>
+                </div>
+
+                <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase">
+                  Regular
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 6. Compact Native Activity Feed (Homework & Notices) */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
         
         {/* Panel 1: Homework Tasks */}

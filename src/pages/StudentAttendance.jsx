@@ -255,30 +255,7 @@ export default function StudentAttendance() {
   const tuitionQuery = selectedTuitionId ? `?tuitionId=${selectedTuitionId}` : '';
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-4xl mx-auto space-y-6 font-sans">
-
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl">
-            <CheckSquare size={28} />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white">Attendance Calendar</h1>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-medium mt-0.5">
-              Monthly attendance calendar for {activeTuition?.name || 'your tuition'}
-            </p>
-          </div>
-        </div>
-
-        <Link
-          to={`/student/dashboard${tuitionQuery}`}
-          replace
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors self-start sm:self-auto"
-        >
-          <ArrowLeft size={14} /> Back to Dashboard
-        </Link>
-      </div>
+    <div className="px-3.5 sm:px-6 py-3 pb-24 max-w-4xl mx-auto space-y-4 font-sans">
 
       {/* Tuition Selector Chips */}
       {tuitions.length > 1 && (

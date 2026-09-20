@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { format, isValid } from 'date-fns';
 import { studentApi } from '../lib/api';
 import { getStudentBillingCycle } from '../lib/feeCycles';
 import { Card } from '../components/ui/Card';
@@ -9,13 +9,13 @@ import {
   Wallet, 
   AlertCircle, 
   Building, 
-  CheckCircle2, 
   Clock, 
-  ArrowLeft, 
   Receipt, 
   CreditCard,
-  Layers,
-  Calendar
+  Calendar,
+  AlertTriangle,
+  Check,
+  X
 } from 'lucide-react';
 import { StudentFeesSkeleton } from '../components/ui/Skeleton';
 
@@ -53,7 +53,7 @@ export default function StudentFees() {
 
   const tuitions = data?.tuitions || [];
   const activeTuition = tuitions.find(t => t.id === selectedTuitionId) || tuitions[0] || null;
-  const feeHistory = data?.fees?.history || data?.feeHistory || [];
+  const feeHistory = Array.isArray(data?.fees?.history || data?.feeHistory) ? (data?.fees?.history || data?.feeHistory) : [];
 
   // Calculate billing cycle derived from student admission date
   const billingCycle = useMemo(() => {
@@ -61,71 +61,118 @@ export default function StudentFees() {
     return getStudentBillingCycle(data.student, feeHistory);
   }, [data?.student, feeHistory]);
 
-  const monthlyTuitionFee = billingCycle?.monthlyFee ?? Number(data?.student?.batch?.fee || data?.student?.fees || data?.student?.monthlyFee || 0);
-  const isPaid = billingCycle?.status === 'Paid' || billingCycle?.status === 'Extra';
+  const monthlyTuitionFee = Number(
+    data?.student?.fees || 
+    data?.student?.monthlyFee || 
+    billingCycle?.monthlyFee || 
+    (data?.student?.batch ? (data.student.batch.fee || data.student.batch.fees) : 0)
+  ) || 0;
 
-  // Group fee receipts by month and compute aggregated sums & balances
-  const monthlyFeeGroups = useMemo(() => {
-    if (!feeHistory || feeHistory.length === 0) return [];
-    
-    const groups = {};
-    
-    feeHistory.forEach(payment => {
-      let monthKey = payment.month;
-      if (!monthKey && payment.paymentDate) {
-        monthKey = String(payment.paymentDate).slice(0, 7);
-      } else if (!monthKey && payment.createdAt) {
-        monthKey = String(payment.createdAt).slice(0, 7);
+  // Compute comprehensive fee timeline
+  const feeTimeline = useMemo(() => {
+    if (!data?.student) {
+      return { nodes: [], totalPaid: 0, totalExpected: 0, totalDuesLeft: 0, monthsStudied: 0, admissionDateFormatted: 'N/A' };
+    }
+
+    const student = data.student;
+    const monthlyFee = Number(student.fees || student.monthlyFee || (student.batch ? (student.batch.fee || student.batch.fees) : 0)) || 0;
+
+    let admDate = student.admissionDate ? new Date(student.admissionDate) : (student.createdAt ? new Date(student.createdAt) : new Date());
+    if (!isValid(admDate)) admDate = new Date();
+
+    const admYear = admDate.getFullYear();
+    const admMonth = admDate.getMonth();
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const payments = Array.isArray(feeHistory) ? feeHistory : [];
+
+    const getPaymentMonthKey = (p) => {
+      if (p.month && /^\d{4}-\d{2}$/.test(p.month)) return p.month;
+      if (p.paymentDate && /^\d{4}-\d{2}$/.test(String(p.paymentDate).slice(0, 7))) return String(p.paymentDate).slice(0, 7);
+      if (p.createdAt && /^\d{4}-\d{2}$/.test(String(p.createdAt).slice(0, 7))) return String(p.createdAt).slice(0, 7);
+      return format(now, 'yyyy-MM');
+    };
+
+    const monthKeysSet = new Set();
+    let y = admYear;
+    let m = admMonth;
+
+    while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+      monthKeysSet.add(`${y}-${String(m + 1).padStart(2, '0')}`);
+      m++;
+      if (m > 11) {
+        m = 0;
+        y++;
       }
-      monthKey = monthKey || 'Unspecified';
-      
-      if (!groups[monthKey]) {
-        groups[monthKey] = {
-          monthKey,
-          totalPaid: 0,
-          payments: []
-        };
-      }
-      groups[monthKey].totalPaid += Number(payment.amount) || 0;
-      groups[monthKey].payments.push(payment);
+    }
+
+    payments.forEach(p => {
+      monthKeysSet.add(getPaymentMonthKey(p));
     });
 
-    return Object.values(groups).map(group => {
-      const diff = group.totalPaid - monthlyTuitionFee;
-      let status = 'Paid';
-      let statusText = 'Paid in Full';
-      let balanceAmount = 0;
+    if (monthKeysSet.size === 0) {
+      monthKeysSet.add(format(now, 'yyyy-MM'));
+    }
 
-      if (monthlyTuitionFee > 0) {
-        if (group.totalPaid < monthlyTuitionFee) {
+    const sortedMonthKeys = Array.from(monthKeysSet).sort();
+
+    const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const monthsStudied = sortedMonthKeys.length;
+    const totalExpected = monthsStudied * monthlyFee;
+
+    const rawNodes = sortedMonthKeys.map((mKey) => {
+      const dateObj = new Date(mKey + '-01');
+      const monthName = isValid(dateObj) ? format(dateObj, 'MMMM yyyy') : mKey;
+      const monthShort = isValid(dateObj) ? format(dateObj, 'MMM yyyy') : mKey;
+
+      const mPayments = payments.filter(p => getPaymentMonthKey(p) === mKey);
+
+      const paidForMonth = mPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const dueForMonth = monthlyFee > 0 ? Math.max(0, monthlyFee - paidForMonth) : 0;
+
+      const isCurrentMonth = mKey === format(now, 'yyyy-MM');
+      const isPastMonth = isValid(dateObj) && dateObj < new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let status = 'Paid';
+      if (monthlyFee > 0) {
+        if (paidForMonth >= monthlyFee) {
+          status = 'Paid';
+        } else if (paidForMonth > 0) {
+          status = 'Partial';
+        } else if (isPastMonth) {
+          status = 'Overdue';
+        } else {
           status = 'Pending';
-          balanceAmount = monthlyTuitionFee - group.totalPaid;
-          statusText = `₹${balanceAmount} Pending`;
-        } else if (group.totalPaid > monthlyTuitionFee) {
-          status = 'Extra';
-          balanceAmount = group.totalPaid - monthlyTuitionFee;
-          statusText = `+₹${balanceAmount} Extra Paid`;
         }
       }
 
       return {
-        ...group,
-        monthlyTuitionFee,
-        diff,
-        balanceAmount,
+        mKey,
+        monthName,
+        monthShort,
+        paidForMonth,
+        dueForMonth,
+        monthlyFee,
         status,
-        statusText
+        isCurrentMonth,
+        mPayments
       };
-    }).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-  }, [feeHistory, monthlyTuitionFee]);
+    });
 
-  const currentMonthKey = format(new Date(), 'yyyy-MM');
-  const currentMonthGroup = monthlyFeeGroups.find(g => g.monthKey === currentMonthKey);
-  const currentMonthPaid = currentMonthGroup ? currentMonthGroup.totalPaid : 0;
-  const currentMonthPending = monthlyTuitionFee > 0 ? Math.max(0, monthlyTuitionFee - currentMonthPaid) : 0;
-  const currentMonthExtra = monthlyTuitionFee > 0 ? Math.max(0, currentMonthPaid - monthlyTuitionFee) : 0;
-  const totalAmountPaid = feeHistory.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  const monthsPaidCount = monthlyFeeGroups.filter(g => g.status === 'Paid' || g.status === 'Extra').length;
+    const totalDuesLeft = rawNodes.reduce((sum, n) => sum + n.dueForMonth, 0);
+
+    return {
+      nodes: rawNodes.reverse(),
+      totalPaid,
+      totalExpected,
+      totalDuesLeft,
+      monthsStudied,
+      admissionDateFormatted: format(admDate, 'dd MMM yyyy')
+    };
+  }, [data?.student, feeHistory]);
 
   if (loading) {
     return <StudentFeesSkeleton />;
@@ -133,14 +180,14 @@ export default function StudentFees() {
 
   if (error || !data) {
     return (
-      <div className="p-8 max-w-lg mx-auto text-center">
-        <Card className="p-8 border-red-200 dark:border-red-900/40 bg-white dark:bg-zinc-900">
-          <AlertCircle className="w-14 h-14 mx-auto mb-4 text-red-500 opacity-80" />
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Error Loading Fees</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">{error || 'Something went wrong.'}</p>
+      <div className="p-6 max-w-lg mx-auto text-center">
+        <Card className="p-6 border-red-200 dark:border-red-900/40 bg-white dark:bg-zinc-900">
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-500 opacity-80" />
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-white mb-1">Error Loading Fees</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">{error || 'Something went wrong.'}</p>
           <button 
             onClick={() => window.location.reload()} 
-            className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors"
+            className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-colors text-xs"
           >
             Try Again
           </button>
@@ -149,39 +196,14 @@ export default function StudentFees() {
     );
   }
 
-  const tuitionQuery = selectedTuitionId ? `?tuitionId=${selectedTuitionId}` : '';
-
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-8 font-sans">
+    <div className="px-3.5 sm:px-6 py-3 pb-24 max-w-5xl mx-auto space-y-4 font-sans">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl">
-            <Wallet size={28} />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white">Fee Details & History</h1>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-medium mt-0.5">
-              Financial summary for {activeTuition?.name || 'your tuition'}
-            </p>
-          </div>
-        </div>
-
-        <Link
-          to={`/student/dashboard${tuitionQuery}`}
-          replace
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors self-start sm:self-auto"
-        >
-          <ArrowLeft size={14} /> Back to Dashboard
-        </Link>
-      </div>
-
-      {/* Tuition Selector Chips */}
+      {/* Tuition Selector Chips (If multiple enrolled) */}
       {tuitions.length > 1 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex-shrink-0 mr-1 flex items-center gap-1.5">
-            <Building size={14} /> Tuition:
+          <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex-shrink-0 mr-1 flex items-center gap-1">
+            <Building size={13} /> Tuition:
           </span>
           {tuitions.map((t) => {
             const isActive = (selectedTuitionId ? t.id === selectedTuitionId : t.id === activeTuition?.id);
@@ -190,10 +212,10 @@ export default function StudentFees() {
                 key={t.id}
                 onClick={() => handleSelectTuition(t.id)}
                 type="button"
-                className={`px-4 py-2 rounded-xl text-xs font-bold flex-shrink-0 transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex-shrink-0 transition-all ${
                   isActive
                     ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
-                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-red-300'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-800/80'
                 }`}
               >
                 {t.name}
@@ -203,210 +225,212 @@ export default function StudentFees() {
         </div>
       )}
 
-      {/* Main Overview Card */}
-      <Card className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 shadow-md">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          <div className="md:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                Current Billing Status
-              </span>
-              {billingCycle && (
-                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg">
-                  Due: Every {billingCycle.joinDay}th of month
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-baseline gap-3">
-              <span className="text-4xl sm:text-5xl font-black text-zinc-900 dark:text-white tracking-tight">
-                ₹{monthlyTuitionFee}
-              </span>
-              <span className="text-zinc-400 font-semibold text-sm">/ month</span>
-              <Badge 
-                variant={billingCycle?.status === 'Pending' ? 'warning' : 'success'}
-                className="px-3.5 py-1 text-xs font-black uppercase tracking-wider ml-1"
-              >
-                {billingCycle?.status === 'Extra' ? `+₹${billingCycle.extraAmount} Extra Paid` : (billingCycle?.status || (isPaid ? 'Paid' : 'Pending'))}
-              </Badge>
-            </div>
-
-            {/* Cycle Details */}
-            {billingCycle && (
-              <div className="flex flex-wrap gap-2 text-xs text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-950 p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60">
-                <span><strong>Active Cycle:</strong> {billingCycle.cycleStartFormatted} - {billingCycle.cycleEndFormatted}</span>
-                <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                <span><strong>Next Due:</strong> <span className="text-red-600 dark:text-red-400 font-bold">{billingCycle.nextDueDateFormatted}</span></span>
-                <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                <span><strong>Joined:</strong> {billingCycle.admissionDateFormatted}</span>
-              </div>
-            )}
-
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-medium max-w-lg">
-              {data.student?.batch 
-                ? `Standard monthly tuition fee for ${data.student.batch.name} (${data.student.batch.subject}).` 
-                : 'No active batch fee plan configured.'}
-            </p>
-
-            {/* Billing Cycle Status Alert */}
-            {billingCycle?.status === 'Pending' ? (
-              <div className="p-3.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-900/40 rounded-2xl flex items-start gap-2.5 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-                <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
-                <p>Fee payment of ₹{billingCycle.remainingAmount} is pending for the billing cycle (Next due date: {billingCycle.nextDueDateFormatted}). Please pay to avoid interruption.</p>
-              </div>
-            ) : billingCycle?.status === 'Extra' ? (
-              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl flex items-start gap-2.5 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
-                <CheckCircle2 size={16} className="flex-shrink-0 mt-0.5" />
-                <p>All fees are cleared and you have +₹{billingCycle.extraAmount} extra / advance balance credit. Next cycle starts on {billingCycle.nextDueDateFormatted}.</p>
-              </div>
-            ) : (
-              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl flex items-start gap-2.5 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
-                <CheckCircle2 size={16} className="flex-shrink-0 mt-0.5" />
-                <p>Your fee is fully paid for the current cycle ({billingCycle?.cycleStartFormatted} - {billingCycle?.cycleEndFormatted}). Next fee is due on {billingCycle?.nextDueDateFormatted}.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-zinc-50 dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800/60 flex flex-col justify-between space-y-4">
-            <div>
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
-                Payment Stats
-              </span>
-              <div className="space-y-2.5 mt-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500">Monthly Due Day:</span>
-                  <span className="font-bold text-zinc-900 dark:text-white">Every {billingCycle?.joinDay || 1}th</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500">Next Due Date:</span>
-                  <span className="font-bold text-red-600 dark:text-red-400">{billingCycle?.nextDueDateFormatted || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500">Months Settled:</span>
-                  <span className="font-bold text-zinc-900 dark:text-white">{monthsPaidCount} months</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500">Total Paid All-Time:</span>
-                  <span className="font-black text-emerald-600 dark:text-emerald-400">₹{totalAmountPaid.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-zinc-200/60 dark:border-zinc-800 text-[11px] text-zinc-400">
-              Receipts are recorded directly by your tutor.
-            </div>
-          </div>
-
-        </div>
-      </Card>
-
-      {/* Payment History Log (Grouped by Month with Aggregated Sums) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
+      {/* 1. Mobile App Fee Summary Card */}
+      <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 dark:from-zinc-950 dark:to-black text-white rounded-2xl p-4 sm:p-5 border border-zinc-800 shadow-xl space-y-3">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-zinc-500" />
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Monthly Fee History & Receipts</h2>
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+              <Wallet size={20} />
+            </div>
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400 block">FEE SUMMARY</span>
+              <h3 className="text-lg sm:text-2xl font-black tracking-tight text-white">
+                ₹{feeTimeline.totalPaid.toLocaleString('en-IN')} <span className="text-xs font-semibold text-zinc-400">/ ₹{feeTimeline.totalExpected.toLocaleString('en-IN')}</span>
+              </h3>
+            </div>
           </div>
-          <span className="text-xs font-semibold text-zinc-400">
-            {monthlyFeeGroups.length} Month Cycles • {feeHistory.length} Total Receipts
+          <Badge variant="success" className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            ₹{monthlyTuitionFee}/mo
+          </Badge>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden p-0.5 border border-zinc-700/50">
+          <div
+            className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${feeTimeline.totalExpected > 0 ? Math.min(100, Math.round((feeTimeline.totalPaid / feeTimeline.totalExpected) * 100)) : 0}%`
+            }}
+          />
+        </div>
+
+        {/* 4 Compact Stat Cards in 2x2 Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+          {/* Admission Date */}
+          <div className="bg-zinc-800/70 dark:bg-zinc-900/70 p-2.5 rounded-xl border border-zinc-700/50">
+            <div className="flex items-center gap-1 text-zinc-400 mb-0.5">
+              <Calendar className="w-3 h-3 text-blue-400" />
+              <span className="text-[9px] font-bold uppercase">ADMISSION</span>
+            </div>
+            <p className="text-xs font-bold text-white truncate">
+              {feeTimeline.admissionDateFormatted || 'N/A'}
+            </p>
+          </div>
+
+          {/* Months Studied */}
+          <div className="bg-zinc-800/70 dark:bg-zinc-900/70 p-2.5 rounded-xl border border-zinc-700/50">
+            <div className="flex items-center gap-1 text-zinc-400 mb-0.5">
+              <Clock className="w-3 h-3 text-amber-400" />
+              <span className="text-[9px] font-bold uppercase">STUDIED</span>
+            </div>
+            <p className="text-xs font-bold text-white">
+              {feeTimeline.monthsStudied} Months
+            </p>
+          </div>
+
+          {/* Total Paid */}
+          <div className="bg-emerald-950/30 border border-emerald-500/30 p-2.5 rounded-xl">
+            <div className="flex items-center gap-1 text-emerald-400 mb-0.5">
+              <Wallet className="w-3 h-3 text-emerald-400" />
+              <span className="text-[9px] font-bold uppercase">PAID</span>
+            </div>
+            <p className="text-xs font-black text-emerald-400">
+              ₹{feeTimeline.totalPaid.toLocaleString('en-IN')}
+            </p>
+          </div>
+
+          {/* Dues Left */}
+          <div className="bg-rose-950/30 border border-rose-500/30 p-2.5 rounded-xl">
+            <div className="flex items-center gap-1 text-rose-400 mb-0.5">
+              <AlertTriangle className="w-3 h-3 text-rose-400" />
+              <span className="text-[9px] font-bold uppercase">DUES</span>
+            </div>
+            <p className="text-xs font-black text-rose-400">
+              ₹{feeTimeline.totalDuesLeft.toLocaleString('en-IN')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Fee Schedule Timeline */}
+      <Card className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xs overflow-hidden rounded-2xl">
+        <div className="p-3.5 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-950/50 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-black text-zinc-900 dark:text-white text-xs sm:text-sm">
+            <CreditCard className="w-4 h-4 text-red-500" />
+            <span>Payment Schedule Timeline</span>
+          </div>
+          <span className="text-[11px] font-bold text-zinc-400">
+            Fee: ₹{monthlyTuitionFee}/mo
           </span>
         </div>
 
-        {monthlyFeeGroups.length === 0 ? (
-          <div className="text-center p-12 border border-dashed border-zinc-300 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
-            <Wallet className="w-12 h-12 mx-auto mb-3 opacity-20 text-zinc-500" />
-            <h3 className="font-bold text-base text-zinc-800 dark:text-zinc-200">No Payment History Yet</h3>
-            <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
-              No previous fee transactions have been logged by your tutor for this tuition yet.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {monthlyFeeGroups.map((group) => {
-              const isExtra = group.status === 'Extra';
-              const isPending = group.status === 'Pending';
-              const isPaidFull = group.status === 'Paid';
+        <div className="p-3 sm:p-5">
+          {feeTimeline.nodes.length === 0 ? (
+            <div className="text-center py-8 text-zinc-400 text-xs font-medium">
+              No billing timeline logged yet.
+            </div>
+          ) : (
+            <div className="relative pl-5 sm:pl-7 space-y-4 before:absolute before:left-2.5 sm:before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-200 dark:before:bg-zinc-800">
+              {feeTimeline.nodes.map((node) => {
+                return (
+                  <div key={node.mKey} className="relative group">
+                    {/* Node Dot Icon */}
+                    <div className={`absolute -left-5 sm:-left-7 top-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all border-2 ${
+                      node.status === 'Paid'
+                        ? 'bg-emerald-500 border-emerald-400 text-white shadow-2xs'
+                        : node.status === 'Partial'
+                          ? 'bg-amber-500 border-amber-400 text-white shadow-2xs'
+                          : node.status === 'Overdue'
+                            ? 'bg-rose-500 border-rose-400 text-white shadow-2xs'
+                            : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300'
+                    }`}>
+                      {node.status === 'Paid' ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : node.status === 'Overdue' ? <X className="w-2.5 h-2.5 stroke-[3]" /> : '!'}
+                    </div>
 
-              return (
-                <Card 
-                  key={group.monthKey} 
-                  className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm space-y-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3.5">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                        isExtra || isPaidFull 
-                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                          : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                      }`}>
-                        {isExtra || isPaidFull ? <CheckCircle2 size={22} /> : <Clock size={22} />}
-                      </div>
-                      <div>
+                    {/* Timeline Node Card */}
+                    <div className="bg-zinc-50/80 dark:bg-zinc-950/60 p-3.5 sm:p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xs space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-zinc-900 dark:text-white text-base">
-                            Month: {group.monthKey}
-                          </h3>
-                          <span className="text-xs text-zinc-400 font-medium">
-                            (Fee: ₹{monthlyTuitionFee})
-                          </span>
+                          <h4 className="font-extrabold text-zinc-900 dark:text-white text-xs sm:text-sm">
+                            {node.monthName}
+                          </h4>
+                          {node.isCurrentMonth && (
+                            <span className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                              Current
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Total money paid this month: <strong className="text-zinc-900 dark:text-white text-sm font-bold">₹{group.totalPaid}</strong>
-                        </p>
+
+                        {/* Status Badge */}
+                        <div>
+                          {node.status === 'Paid' && (
+                            <Badge variant="success" className="px-2 py-0.5 font-extrabold text-[10px] bg-emerald-600 dark:bg-emerald-500 text-white">
+                              Paid
+                            </Badge>
+                          )}
+                          {node.status === 'Partial' && (
+                            <Badge variant="warning" className="px-2 py-0.5 font-extrabold text-[10px]">
+                              ₹{node.dueForMonth} Dues
+                            </Badge>
+                          )}
+                          {node.status === 'Overdue' && (
+                            <Badge variant="danger" className="px-2 py-0.5 font-extrabold text-[10px]">
+                              ₹{node.dueForMonth} Overdue
+                            </Badge>
+                          )}
+                          {node.status === 'Pending' && (
+                            <Badge variant="secondary" className="px-2 py-0.5 font-extrabold text-[10px]">
+                              ₹{node.dueForMonth} Pending
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 self-start sm:self-center">
-                      {isExtra && (
-                        <Badge variant="success" className="bg-emerald-600 dark:bg-emerald-500 text-white font-bold px-3 py-1 text-xs">
-                          +₹{group.balanceAmount} Extra Paid
-                        </Badge>
-                      )}
-                      {isPending && (
-                        <Badge variant="warning" className="px-3 py-1 font-bold text-xs">
-                          ₹{group.balanceAmount} Pending
-                        </Badge>
-                      )}
-                      {isPaidFull && (
-                        <Badge variant="success" className="px-3 py-1 font-bold text-xs">
-                          Paid in Full
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
+                      {/* Payment Progress line */}
+                      <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                        <span>Paid: <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold">₹{node.paidForMonth.toLocaleString('en-IN')}</strong> / ₹{monthlyTuitionFee}</span>
+                        {node.dueForMonth > 0 ? (
+                          <span className="text-rose-600 dark:text-rose-400 font-bold">Due: ₹{node.dueForMonth}</span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Paid in full</span>
+                        )}
+                      </div>
 
-                  {/* Individual Installment Receipts */}
-                  <div className="bg-zinc-50 dark:bg-zinc-950/70 rounded-xl p-3 border border-zinc-100 dark:border-zinc-800/80 space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                      Installment Payments ({group.payments.length})
-                    </p>
-                    <div className="space-y-1.5">
-                      {group.payments.map((payment, pIdx) => (
-                        <div key={payment._id || payment.id || pIdx} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-zinc-900 dark:text-white">
-                              ₹{payment.amount}
-                            </span>
-                            <span className="text-zinc-400 text-[11px]">
-                              (Installment #{group.payments.length - pIdx})
-                            </span>
-                          </div>
-                          <span className="text-zinc-500 dark:text-zinc-400 text-[11px] flex items-center gap-1">
-                            <Calendar size={11} />
-                            {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {/* Individual Receipts logged for this month */}
+                      {node.mPayments.length > 0 && (
+                        <div className="pt-1.5 space-y-1.5">
+                          <span className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                            Receipts ({node.mPayments.length})
                           </span>
+                          <div className="space-y-1.5">
+                            {node.mPayments.map((payment, pIdx) => (
+                              <div
+                                key={payment._id || payment.id || pIdx}
+                                className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/80 text-xs shadow-2xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                    <Receipt className="w-3 h-3" />
+                                  </div>
+                                  <span className="font-extrabold text-zinc-900 dark:text-white text-xs">
+                                    ₹{Number(payment.amount).toLocaleString('en-IN')}
+                                  </span>
+                                  {payment.paymentMode && (
+                                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                                      {payment.paymentMode}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <span className="text-[10px] text-zinc-400 font-medium">
+                                  {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString('en-IN', {
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
-
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Card>
 
     </div>
   );

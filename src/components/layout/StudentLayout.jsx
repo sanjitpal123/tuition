@@ -324,6 +324,107 @@ export function StudentLayout() {
             </div>
           </div>
 
+          {/* Top Mobile App Header (Mobile Viewports Only) */}
+          <div className="relative md:hidden z-30">
+            <div 
+              className="flex sticky top-0 flex-shrink-0 bg-white/95 dark:bg-[#0c0f17]/95 backdrop-blur-2xl border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 py-2.5 justify-between items-center shadow-xs"
+              style={{ 
+                paddingTop: 'calc(0.625rem + env(safe-area-inset-top, 0px))' 
+              }}
+            >
+              <button 
+                type="button"
+                onClick={() => setMobileTuitionDropdownOpen(!mobileTuitionDropdownOpen)}
+                className="flex items-center space-x-2.5 min-w-0 cursor-pointer text-left focus:outline-none"
+              >
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center text-white font-extrabold text-xs shadow-sm flex-shrink-0">
+                  {(selectedTuition.name || 'T').charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-xs font-extrabold text-zinc-900 dark:text-white truncate leading-tight flex items-center gap-1">
+                    {selectedTuition.name}
+                    <ChevronDown className={`w-3.5 h-3.5 text-red-500 flex-shrink-0 transition-transform ${mobileTuitionDropdownOpen ? 'rotate-180' : ''}`} />
+                  </h1>
+                  <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider block leading-tight">
+                    Switch Tuition ({multipleTuitions.length})
+                  </span>
+                </div>
+              </button>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={toggleTheme}
+                  className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center text-zinc-600 dark:text-zinc-300 active:scale-95 transition-all"
+                  title="Toggle Theme"
+                >
+                  {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
+                </button>
+
+                <button 
+                  onClick={() => navigate({ pathname: '/student/notifications', search: searchParams.toString() })}
+                  className="relative w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center text-zinc-600 dark:text-zinc-300 active:scale-95 transition-all"
+                  title="Notifications"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[15px] h-[15px] px-0.5 text-[8.5px] font-extrabold text-white bg-red-600 rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Prominent Tuition Switcher Dropdown Modal for Mobile Header */}
+            {mobileTuitionDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 bg-white dark:bg-[#101420] border-b border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-150 p-3 space-y-2">
+                <div className="flex items-center justify-between px-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
+                  <span className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-red-500" /> Enrolled Tuitions ({multipleTuitions.length})
+                  </span>
+                  <button 
+                    onClick={() => setMobileTuitionDropdownOpen(false)}
+                    className="text-xs font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                  {multipleTuitions.map(t => {
+                    const isSelected = selectedTuition.id === (t.id || t._id) || selectedTuition._id === (t.id || t._id);
+                    return (
+                      <button
+                        key={t.id || t._id}
+                        onClick={() => {
+                          handleSwitchTuition(t.id || t._id);
+                          setMobileTuitionDropdownOpen(false);
+                        }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all ${
+                          isSelected
+                            ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
+                            : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-extrabold text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-red-500/10 text-red-500'}`}>
+                            {(t.name || 'T').charAt(0).toUpperCase()}
+                          </div>
+                          <span className="truncate">{t.name}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[10px] font-extrabold uppercase bg-white/20 px-2 py-0.5 rounded-full">
+                            Active
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Main Subview Outlet */}
           <main className="flex-1 pb-28 md:pb-12">
             <div className="pt-2 md:pt-6">
